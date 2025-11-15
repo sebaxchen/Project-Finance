@@ -40,7 +40,6 @@ La aplicación estará disponible en `http://localhost:5173`
   - `firebase.ts` - Configuración de Firebase
   - `firebaseService.ts` - Servicio que simula la API de Supabase usando Firebase
   - `supabase.ts` - Exporta el cliente Firebase con interfaz compatible
-- `supabase/migrations/` - Migraciones de base de datos (referencia histórica)
 
 ## Tecnologías
 
