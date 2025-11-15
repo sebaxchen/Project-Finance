@@ -18,6 +18,13 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(false);
+
+    // Validaciones
+    if (!fullName || !email || !password || !confirmPassword) {
+      setError('Por favor, completa todos los campos');
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError('Las contraseñas no coinciden');
@@ -29,12 +36,30 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
       return;
     }
 
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Por favor, ingresa un correo electrónico válido');
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await signUp(email, password, fullName);
 
     if (error) {
-      setError(error.message);
+      // Traducir mensajes de error comunes de Firebase
+      let errorMessage = error.message;
+      if (error.message.includes('email-already-in-use')) {
+        errorMessage = 'Este correo electrónico ya está registrado';
+      } else if (error.message.includes('invalid-email')) {
+        errorMessage = 'Correo electrónico inválido';
+      } else if (error.message.includes('weak-password')) {
+        errorMessage = 'La contraseña es muy débil. Usa al menos 6 caracteres';
+      } else if (error.message.includes('network')) {
+        errorMessage = 'Error de conexión. Verifica tu internet';
+      }
+      setError(errorMessage);
       setLoading(false);
     }
   };
@@ -98,9 +123,15 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={6}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="••••••••"
+              placeholder="Mínimo 6 caracteres"
             />
+            {password && password.length < 6 && (
+              <p className="mt-1 text-xs text-amber-600">
+                La contraseña debe tener al menos 6 caracteres
+              </p>
+            )}
           </div>
 
           <div>

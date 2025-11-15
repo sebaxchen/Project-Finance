@@ -1,7 +1,13 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { Profile } from '../types/database';
+
+// Tipo User local que reemplaza el de Supabase
+interface User {
+  id: string;
+  email: string;
+  created_at: string;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -63,8 +69,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      if (data?.user) {
+        setUser(data.user);
+        await loadProfile(data.user.id);
+      }
       return { error: null };
     } catch (error) {
       return { error: error as Error };
@@ -90,6 +100,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (profileError) throw profileError;
 
+      // Actualizar estado después de registro exitoso
+      setUser(authData.user);
+      await loadProfile(authData.user.id);
+
       return { error: null };
     } catch (error) {
       return { error: error as Error };
@@ -98,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setUser(null);
     setProfile(null);
   };
 

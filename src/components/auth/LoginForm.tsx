@@ -18,10 +18,28 @@ export function LoginForm({ onToggleForm }: LoginFormProps) {
     setError('');
     setLoading(true);
 
+    // Validación básica
+    if (!email || !password) {
+      setError('Por favor, completa todos los campos');
+      setLoading(false);
+      return;
+    }
+
     const { error } = await signIn(email, password);
 
     if (error) {
-      setError(error.message);
+      // Traducir mensajes de error comunes de Firebase
+      let errorMessage = error.message;
+      if (error.message.includes('user-not-found') || error.message.includes('wrong-password')) {
+        errorMessage = 'Correo o contraseña incorrectos';
+      } else if (error.message.includes('invalid-email')) {
+        errorMessage = 'Correo electrónico inválido';
+      } else if (error.message.includes('too-many-requests')) {
+        errorMessage = 'Demasiados intentos fallidos. Intenta más tarde';
+      } else if (error.message.includes('network')) {
+        errorMessage = 'Error de conexión. Verifica tu internet';
+      }
+      setError(errorMessage);
       setLoading(false);
     }
   };
