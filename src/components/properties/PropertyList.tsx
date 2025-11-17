@@ -3,10 +3,12 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { PropertyUnit } from '../../types/database';
 import { Home, MapPin, Ruler } from 'lucide-react';
+import { getDistrictImage } from '../../utils/districtImages';
 
 export function PropertyList() {
   const { user } = useAuth();
   const [properties, setProperties] = useState<PropertyUnit[]>([]);
+  const [assignedPropertyIds, setAssignedPropertyIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,14 +17,28 @@ export function PropertyList() {
 
   const loadProperties = async () => {
     try {
-      const { data, error } = await supabase
-        .from('property_units')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
+      const [propertiesResult, simulationsResult] = await Promise.all([
+        supabase
+          .from('property_units')
+          .select('*')
+          .eq('user_id', user?.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('credit_simulations')
+          .select('property_id')
+          .eq('user_id', user?.id),
+      ]);
 
-      if (error) throw error;
-      setProperties(data || []);
+      if (propertiesResult.error) throw propertiesResult.error;
+      if (simulationsResult.error) throw simulationsResult.error;
+
+      setProperties(propertiesResult.data || []);
+      
+      // Crear un Set con los IDs de propiedades que tienen simulaciones (asignadas)
+      const assignedIds = new Set(
+        (simulationsResult.data || []).map((sim) => sim.property_id)
+      );
+      setAssignedPropertyIds(assignedIds);
     } catch (error) {
       console.error('Error loading properties:', error);
     } finally {
@@ -39,11 +55,20 @@ export function PropertyList() {
     return labels[type] || type;
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, propertyId: string) => {
+    // Si la propiedad está asignada a un cliente (tiene simulación), mostrar "No disponible"
+    if (assignedPropertyIds.has(propertyId)) {
+      return (
+        <span className="px-3 py-1.5 rounded-full text-sm font-semibold border-2 bg-red-500 text-white border-red-600 shadow-sm">
+          No disponible
+        </span>
+      );
+    }
+
     const styles: Record<string, string> = {
-      available: 'bg-green-100 text-green-800',
-      reserved: 'bg-yellow-100 text-yellow-800',
-      sold: 'bg-gray-100 text-gray-800',
+      available: 'bg-green-500 text-white border-green-600',
+      reserved: 'bg-yellow-500 text-white border-yellow-600',
+      sold: 'bg-gray-500 text-white border-gray-600',
     };
 
     const labels: Record<string, string> = {
@@ -53,7 +78,7 @@ export function PropertyList() {
     };
 
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status]}`}>
+      <span className={`px-3 py-1.5 rounded-full text-sm font-semibold border-2 ${styles[status]} shadow-sm`}>
         {labels[status]}
       </span>
     );
@@ -84,8 +109,28 @@ export function PropertyList() {
           key={property.id}
           className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
         >
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 h-32 flex items-center justify-center">
-            <Home className="w-16 h-16 text-white opacity-50" />
+          <div className="bg-blue-600 h-32 flex items-center justify-center relative overflow-hidden">
+            {(() => {
+              const districtImage = getDistrictImage(
+                property.district,
+                property.province,
+                property.department
+              );
+
+              if (districtImage) {
+                // Mostrar imagen del distrito
+                return (
+                  <img
+                    src={districtImage}
+                    alt={property.district || 'Distrito'}
+                    className="w-full h-full object-cover"
+                  />
+                );
+              } else {
+                // Mostrar icono por defecto
+                return <Home className="w-16 h-16 text-white opacity-50" />;
+              }
+            })()}
           </div>
 
           <div className="p-6">
@@ -94,7 +139,7 @@ export function PropertyList() {
                 <h3 className="font-semibold text-gray-900">{property.property_name}</h3>
                 <p className="text-sm text-gray-500">{property.unit_number}</p>
               </div>
-              {getStatusBadge(property.status)}
+              {getStatusBadge(property.status, property.id)}
             </div>
 
             <div className="space-y-2 mb-4">

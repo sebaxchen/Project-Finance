@@ -25,9 +25,20 @@ export function SimulationDetail({ simulationId, onClose }: SimulationDetailProp
         .from('credit_simulations')
         .select('*')
         .eq('id', simulationId)
-        .single();
+        .maybeSingle();
 
-      if (simError) throw simError;
+      if (simError) {
+        console.error('Error loading simulation:', simError);
+        setLoading(false);
+        return;
+      }
+
+      if (!simData) {
+        console.error('Simulation not found');
+        setLoading(false);
+        return;
+      }
+
       setSimulation(simData);
 
       const [scheduleResult, clientResult, propertyResult] = await Promise.all([
@@ -36,17 +47,27 @@ export function SimulationDetail({ simulationId, onClose }: SimulationDetailProp
           .select('*')
           .eq('simulation_id', simulationId)
           .order('period_number'),
-        supabase.from('clients').select('*').eq('id', simData.client_id).single(),
-        supabase.from('property_units').select('*').eq('id', simData.property_id).single(),
+        supabase.from('clients').select('*').eq('id', simData.client_id).maybeSingle(),
+        supabase.from('property_units').select('*').eq('id', simData.property_id).maybeSingle(),
       ]);
 
-      if (scheduleResult.error) throw scheduleResult.error;
-      if (clientResult.error) throw clientResult.error;
-      if (propertyResult.error) throw propertyResult.error;
+      if (scheduleResult.error) {
+        console.error('Error loading schedule:', scheduleResult.error);
+      } else {
+        setSchedule(scheduleResult.data || []);
+      }
 
-      setSchedule(scheduleResult.data || []);
-      setClient(clientResult.data);
-      setProperty(propertyResult.data);
+      if (clientResult.error) {
+        console.error('Error loading client:', clientResult.error);
+      } else {
+        setClient(clientResult.data);
+      }
+
+      if (propertyResult.error) {
+        console.error('Error loading property:', propertyResult.error);
+      } else {
+        setProperty(propertyResult.data);
+      }
     } catch (error) {
       console.error('Error loading simulation:', error);
     } finally {
@@ -59,33 +80,73 @@ export function SimulationDetail({ simulationId, onClose }: SimulationDetailProp
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-lg p-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-gray-600 mt-4 text-center">Cargando simulación...</p>
         </div>
       </div>
     );
   }
 
-  if (!simulation || !client || !property) {
-    return null;
+  // Si no hay simulación, mostrar error
+  if (!simulation) {
+    return (
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
+      >
+        <div className="bg-white rounded-lg p-8 max-w-md w-full">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error</h3>
+          <p className="text-gray-600 mb-4">No se pudo cargar la simulación.</p>
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    );
   }
+
+  // Si falta información del cliente o propiedad, mostrar advertencia pero continuar
+  const hasIncompleteData = !client || !property;
 
   const currencySymbol = simulation.currency === 'PEN' ? 'S/' : '$';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full my-8">
-        <div className="flex items-center justify-between p-6 border-b">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b flex-shrink-0">
           <div>
             <h2 className="text-2xl font-bold text-gray-800">Detalle de Simulación</h2>
             <p className="text-gray-600 text-sm mt-1">
-              Cliente: {client.full_name} - Propiedad: {property.property_name}
+              Cliente: {client?.full_name || 'No disponible'} - Propiedad: {property?.property_name || 'No disponible'}
             </p>
+            {hasIncompleteData && (
+              <p className="text-xs text-yellow-600 mt-1">
+                ⚠️ Algunos datos del cliente o propiedad no están disponibles
+              </p>
+            )}
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button 
+            onClick={onClose} 
+            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
+          >
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto flex-1">
           <div className="grid md:grid-cols-4 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
@@ -185,8 +246,8 @@ export function SimulationDetail({ simulationId, onClose }: SimulationDetailProp
 
           <div>
             <h3 className="font-semibold text-gray-900 mb-3">Cronograma de Pagos</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="w-full text-sm min-w-[800px]">
                 <thead className="bg-gray-100">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">#</th>

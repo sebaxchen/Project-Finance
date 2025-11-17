@@ -39,9 +39,9 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50">
       <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} />
-      <main className="flex-1 overflow-auto">
+      <main className="ml-64 min-h-screen overflow-auto">
         <div className="max-w-7xl mx-auto p-8">{renderPage()}</div>
       </main>
     </div>

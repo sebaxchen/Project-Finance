@@ -3,6 +3,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Client } from '../../types/database';
 import { User, Mail, Phone, DollarSign } from 'lucide-react';
+import { getClientColor } from '../../utils/clientColors';
+import { getDistrictImage } from '../../utils/districtImages';
 
 export function ClientList() {
   const { user } = useAuth();
@@ -59,51 +61,102 @@ export function ClientList() {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="space-y-4">
       {clients.map((client) => (
         <div
           key={client.id}
           className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow"
         >
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <User className="w-6 h-6 text-blue-600" />
+          <div className="flex items-center gap-6">
+            {/* Avatar o Imagen del Distrito */}
+            <div className="flex-shrink-0">
+              {(() => {
+                const districtImage = getDistrictImage(
+                  client.district,
+                  client.province,
+                  client.department
+                );
+
+                if (districtImage) {
+                  // Mostrar imagen del distrito
+                  return (
+                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-200">
+                      <img
+                        src={districtImage}
+                        alt={client.district || 'Distrito'}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  );
+                } else {
+                  // Mostrar avatar con color
+                  const colorScheme = getClientColor(client.id, client.color);
+                  return (
+                    <div className={`w-16 h-16 ${colorScheme.light} rounded-full flex items-center justify-center`}>
+                      <User className={`w-8 h-8 ${colorScheme.text}`} />
+                    </div>
+                  );
+                }
+              })()}
+            </div>
+
+            {/* Información principal */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-lg text-gray-900 mb-1">{client.full_name}</h3>
+                  <p className="text-sm text-gray-500">
+                    {client.document_type}: {client.document_number}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">{client.full_name}</h3>
-                <p className="text-sm text-gray-500">
-                  {client.document_type}: {client.document_number}
-                </p>
+
+              {/* Información en formato horizontal */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500">Email</p>
+                    <p className="text-sm text-gray-900 truncate">{client.email}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500">Teléfono</p>
+                    <p className="text-sm text-gray-900">{client.phone}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500">Ingreso Mensual</p>
+                    <p className="text-sm text-gray-900 font-medium">
+                      S/ {client.monthly_income.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500">Estado Civil</p>
+                    <p className="text-sm text-gray-900">{getMaritalStatusLabel(client.marital_status)}</p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Mail className="w-4 h-4" />
-              <span className="truncate">{client.email}</span>
-            </div>
-
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Phone className="w-4 h-4" />
-              <span>{client.phone}</span>
-            </div>
-
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <DollarSign className="w-4 h-4" />
-              <span>S/ {client.monthly_income.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
-            </div>
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <p className="text-gray-500">Estado Civil</p>
-              <p className="font-medium text-gray-900">{getMaritalStatusLabel(client.marital_status)}</p>
-            </div>
-            <div>
-              <p className="text-gray-500">Dependientes</p>
-              <p className="font-medium text-gray-900">{client.dependents}</p>
+              {/* Información adicional en segunda fila horizontal */}
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <div className="flex items-center gap-6 text-sm">
+                  <div>
+                    <span className="text-gray-500">Dependientes: </span>
+                    <span className="font-medium text-gray-900">{client.dependents}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -4,6 +4,7 @@ import { ClientForm } from '../components/clients/ClientForm';
 import { UserPlus, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { assignNewClientColor } from '../utils/clientColors';
 
 export function ClientsPage() {
   const [showForm, setShowForm] = useState(false);
@@ -23,6 +24,14 @@ export function ClientsPage() {
 
     setCreatingSample(true);
     try {
+      // Contar clientes existentes para asignar el siguiente color
+      const { count } = await supabase
+        .from('clients')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      const colorIndex = assignNewClientColor(count || 0);
+
       const sampleClient = {
         document_type: 'DNI',
         document_number: '12345678',
@@ -32,7 +41,11 @@ export function ClientsPage() {
         marital_status: 'married',
         dependents: 2,
         monthly_income: 5000,
+        district: 'Miraflores',
+        province: 'Lima',
+        department: 'Lima',
         user_id: user.id,
+        color: colorIndex,
       };
 
       const { error } = await supabase.from('clients').insert(sampleClient);

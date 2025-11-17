@@ -20,6 +20,10 @@ export interface Client {
   marital_status: 'single' | 'married' | 'divorced' | 'widowed';
   dependents: number;
   monthly_income: number;
+  color?: number; // Índice del color (0-19)
+  district?: string;
+  province?: string;
+  department?: string;
   created_at: string;
   updated_at: string;
 }

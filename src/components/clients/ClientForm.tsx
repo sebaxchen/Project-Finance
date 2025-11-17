@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { X } from 'lucide-react';
+import { assignNewClientColor } from '../../utils/clientColors';
 
 interface ClientFormProps {
   onClose: () => void;
@@ -22,6 +23,9 @@ export function ClientForm({ onClose, onSuccess }: ClientFormProps) {
     marital_status: 'single',
     dependents: 0,
     monthly_income: 0,
+    district: '',
+    province: '',
+    department: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,9 +34,18 @@ export function ClientForm({ onClose, onSuccess }: ClientFormProps) {
     setLoading(true);
 
     try {
+      // Contar clientes existentes para asignar el siguiente color
+      const { count } = await supabase
+        .from('clients')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user?.id);
+
+      const colorIndex = assignNewClientColor(count || 0);
+
       const { error: insertError } = await supabase.from('clients').insert({
         ...formData,
         user_id: user?.id,
+        color: colorIndex,
       });
 
       if (insertError) throw insertError;
@@ -205,6 +218,53 @@ export function ClientForm({ onClose, onSuccess }: ClientFormProps) {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="0.00"
             />
+          </div>
+
+          <div className="border-t border-gray-200 pt-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Ubicación</h3>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Departamento
+                </label>
+                <input
+                  type="text"
+                  name="department"
+                  value={formData.department}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Lima"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Provincia
+                </label>
+                <input
+                  type="text"
+                  name="province"
+                  value={formData.province}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Lima"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Distrito
+                </label>
+                <input
+                  type="text"
+                  name="district"
+                  value={formData.district}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Miraflores, San Isidro, etc."
+                />
+              </div>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-4">

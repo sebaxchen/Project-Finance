@@ -59,68 +59,74 @@ export function SimulationList({ onViewDetails }: SimulationListProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {simulations.map((sim) => {
         const currencySymbol = sim.currency === 'PEN' ? 'S/' : '$';
 
         return (
           <div
             key={sim.id}
-            className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+            className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
           >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <Calculator className="w-5 h-5 text-blue-600" />
-                  <h3 className="font-semibold text-gray-900">
+            {/* Header con icono */}
+            <div className="bg-blue-600 h-24 flex items-center justify-center">
+              <Calculator className="w-12 h-12 text-white opacity-80" />
+            </div>
+
+            <div className="p-6">
+              {/* Información principal */}
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="font-semibold text-gray-900 text-lg">
                     {sim.clients?.full_name || 'Cliente no disponible'}
                   </h3>
                 </div>
-                <p className="text-sm text-gray-600">
-                  {sim.property_units?.property_name || 'Propiedad no disponible'} -{' '}
-                  {sim.property_units?.unit_number || ''}
+                <p className="text-sm text-gray-600 mb-1">
+                  {sim.property_units?.property_name || 'Propiedad no disponible'}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Creado: {new Date(sim.created_at).toLocaleDateString('es-PE')}
+                <p className="text-xs text-gray-500">
+                  {sim.property_units?.unit_number || ''} • {new Date(sim.created_at).toLocaleDateString('es-PE')}
                 </p>
               </div>
 
+              {/* Información financiera */}
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Monto del Préstamo</span>
+                  <span className="font-semibold text-gray-900">
+                    {currencySymbol}{' '}
+                    {sim.loan_amount.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Plazo</span>
+                  <span className="font-semibold text-gray-900">{sim.loan_term_years} años</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">TEA</span>
+                  <span className="font-semibold text-green-600">
+                    {((sim.tea || 0) * 100).toFixed(2)}%
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">TCEA</span>
+                  <span className="font-semibold text-orange-600">
+                    {((sim.tcea || 0) * 100).toFixed(2)}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Botón ver detalle */}
               <button
                 onClick={() => onViewDetails(sim.id)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 <Eye className="w-4 h-4" />
                 Ver Detalle
               </button>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-100">
-              <div>
-                <p className="text-xs text-gray-500">Monto del Préstamo</p>
-                <p className="font-semibold text-gray-900">
-                  {currencySymbol}{' '}
-                  {sim.loan_amount.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs text-gray-500">Plazo</p>
-                <p className="font-semibold text-gray-900">{sim.loan_term_years} años</p>
-              </div>
-
-              <div>
-                <p className="text-xs text-gray-500">TEA</p>
-                <p className="font-semibold text-green-600">
-                  {((sim.tea || 0) * 100).toFixed(2)}%
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs text-gray-500">TCEA</p>
-                <p className="font-semibold text-orange-600">
-                  {((sim.tcea || 0) * 100).toFixed(2)}%
-                </p>
-              </div>
             </div>
           </div>
         );

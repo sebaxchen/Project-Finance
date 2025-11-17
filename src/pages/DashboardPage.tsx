@@ -1,7 +1,19 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, Building2, Calculator, TrendingUp } from 'lucide-react';
+import {
+  Users,
+  Building2,
+  Calculator,
+  TrendingUp,
+  Shield,
+  DollarSign,
+  FileText,
+  CheckCircle2,
+  Award,
+  Globe,
+  Scale,
+} from 'lucide-react';
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -116,34 +128,119 @@ export function DashboardPage() {
             })}
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
-              Acerca de HomeCredit
-            </h2>
-            <div className="space-y-4 text-gray-700">
-              <p>
-                HomeCredit es una plataforma integral diseñada para gestionar y simular créditos
-                hipotecarios del Fondo MiVivienda en Perú.
+          <div className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+            {/* Header */}
+            <div className="bg-blue-600 p-6 text-white">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  <Award className="w-6 h-6" />
+                </div>
+                <h2 className="text-2xl font-bold">Acerca de HomeCredit</h2>
+              </div>
+              <p className="text-blue-100 text-sm">
+                Plataforma integral para gestión y simulación de créditos hipotecarios
               </p>
+            </div>
 
-              <div>
-                <h3 className="font-semibold mb-2">Características principales:</h3>
-                <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>Gestión completa de clientes y propiedades inmobiliarias</li>
-                  <li>
-                    Simulación detallada de créditos con método francés de amortización
-                  </li>
-                  <li>Cálculo de indicadores financieros: VAN, TIR, TEA y TCEA</li>
-                  <li>Soporte para Bono de Techo Propio</li>
-                  <li>Periodos de gracia total y parcial</li>
-                  <li>Múltiples monedas (Soles y Dólares)</li>
-                  <li>Cumplimiento normativo con SBS y Fondo MiVivienda</li>
-                </ul>
+            <div className="p-6 space-y-6 bg-gray-50">
+              {/* Descripción principal */}
+              <div className="bg-white rounded-lg p-5 border border-gray-200">
+                <p className="text-gray-700 leading-relaxed text-base">
+                  <span className="font-semibold text-gray-900">HomeCredit</span> es una
+                  plataforma integral diseñada para gestionar y simular créditos hipotecarios del
+                  <span className="font-semibold text-blue-600"> Fondo MiVivienda</span> en Perú.
+                </p>
               </div>
 
-              <p className="text-sm text-gray-600 pt-4 border-t">
-                Sistema conforme a la Ley N° 26702 y regulaciones del Fondo MiVivienda
-              </p>
+              {/* Características principales */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  Características principales
+                </h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {[
+                    {
+                      icon: Users,
+                      title: 'Gestión completa',
+                      description: 'Clientes y propiedades inmobiliarias',
+                      color: 'bg-blue-100 text-blue-600',
+                    },
+                    {
+                      icon: Calculator,
+                      title: 'Simulación detallada',
+                      description: 'Método francés de amortización',
+                      color: 'bg-purple-100 text-purple-600',
+                    },
+                    {
+                      icon: TrendingUp,
+                      title: 'Indicadores financieros',
+                      description: 'VAN, TIR, TEA y TCEA',
+                      color: 'bg-green-100 text-green-600',
+                    },
+                    {
+                      icon: Award,
+                      title: 'Bono de Techo Propio',
+                      description: 'Soporte completo integrado',
+                      color: 'bg-orange-100 text-orange-600',
+                    },
+                    {
+                      icon: FileText,
+                      title: 'Periodos de gracia',
+                      description: 'Total y parcial disponibles',
+                      color: 'bg-indigo-100 text-indigo-600',
+                    },
+                    {
+                      icon: DollarSign,
+                      title: 'Múltiples monedas',
+                      description: 'Soles y Dólares',
+                      color: 'bg-yellow-100 text-yellow-600',
+                    },
+                    {
+                      icon: Shield,
+                      title: 'Cumplimiento normativo',
+                      description: 'SBS y Fondo MiVivienda',
+                      color: 'bg-red-100 text-red-600',
+                    },
+                    {
+                      icon: Scale,
+                      title: 'Regulación legal',
+                      description: 'Ley N° 26702 y normativas',
+                      color: 'bg-teal-100 text-teal-600',
+                    },
+                  ].map((feature, index) => {
+                    const Icon = feature.icon;
+                    return (
+                      <div
+                        key={index}
+                        className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-all duration-200 hover:border-blue-300"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`${feature.color} p-2 rounded-lg flex-shrink-0`}>
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900 mb-1">{feature.title}</h4>
+                            <p className="text-sm text-gray-600">{feature.description}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Footer con información legal */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <Globe className="w-4 h-4 text-blue-600" />
+                  <p>
+                    <span className="font-semibold">Sistema conforme</span> a la{' '}
+                    <span className="font-semibold text-blue-600">Ley N° 26702</span> y
+                    regulaciones del <span className="font-semibold text-blue-600">Fondo MiVivienda</span>
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </>
