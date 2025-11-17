@@ -88,7 +88,29 @@ class FirebaseSupabaseClient {
     if (options?.head) {
       this.headMode = true;
     }
-    return this;
+    // Retornar un objeto que sea "thenable" para soportar await, pero también permita encadenar métodos
+    const self = this;
+    const thenable = {
+      // Métodos de encadenamiento
+      eq: (column: string, value: any) => {
+        self.eq(column, value);
+        return thenable;
+      },
+      order: (column: string, options?: { ascending?: boolean }) => {
+        self.order(column, options);
+        return thenable;
+      },
+      single: () => self.single(),
+      maybeSingle: () => self.maybeSingle(),
+      // Hacer el objeto "thenable" para soportar await
+      then: (onFulfilled?: (value: any) => any, onRejected?: (reason: any) => any) => {
+        return self.executeQuery().then(onFulfilled, onRejected);
+      },
+      catch: (onRejected?: (reason: any) => any) => {
+        return self.executeQuery().catch(onRejected);
+      },
+    };
+    return thenable as any;
   }
 
   eq(column: string, value: any) {
@@ -101,51 +123,95 @@ class FirebaseSupabaseClient {
     return this;
   }
 
-  async insert(data: any) {
-    try {
-      // Convertir fechas a Timestamp si es necesario
-      const dataToInsert: any = { ...data };
-      const { id, ...dataWithoutId } = dataToInsert;
-      
-      if (!dataToInsert.created_at) {
-        dataToInsert.created_at = Timestamp.now();
-      }
-      if (!dataToInsert.updated_at) {
-        dataToInsert.updated_at = Timestamp.now();
-      }
+  insert(data: any) {
+    // Retornar un objeto que permita encadenar .select() después de insert
+    const self = this;
+    const insertPromise = (async () => {
+      try {
+        // Convertir fechas a Timestamp si es necesario
+        const dataToInsert: any = { ...data };
+        const { id, ...dataWithoutId } = dataToInsert;
+        
+        if (!dataToInsert.created_at) {
+          dataToInsert.created_at = Timestamp.now();
+        }
+        if (!dataToInsert.updated_at) {
+          dataToInsert.updated_at = Timestamp.now();
+        }
 
-      let docRef;
-      // Si se proporciona un ID, usar setDoc en lugar de addDoc
-      if (id) {
-        docRef = doc(db, this.collectionName, id);
-        await setDoc(docRef, {
+        let docRef;
+        // Si se proporciona un ID, usar setDoc en lugar de addDoc
+        if (id) {
+          docRef = doc(db, self.collectionName, id);
+          await setDoc(docRef, {
+            ...dataWithoutId,
+            created_at: dataToInsert.created_at,
+            updated_at: dataToInsert.updated_at,
+          });
+        } else {
+          docRef = await addDoc(collection(db, self.collectionName), {
+            ...dataWithoutId,
+            created_at: dataToInsert.created_at,
+            updated_at: dataToInsert.updated_at,
+          });
+        }
+
+        const newItem = {
           ...dataWithoutId,
-          created_at: dataToInsert.created_at,
-          updated_at: dataToInsert.updated_at,
-        });
-      } else {
-        docRef = await addDoc(collection(db, this.collectionName), {
-          ...dataWithoutId,
-          created_at: dataToInsert.created_at,
-          updated_at: dataToInsert.updated_at,
-        });
+          id: docRef.id,
+          created_at: dataToInsert.created_at.toDate().toISOString(),
+          updated_at: dataToInsert.updated_at.toDate().toISOString(),
+        };
+
+        self.lastInsertedItem = newItem;
+        return { data: newItem, error: null };
+      } catch (error: any) {
+        return { data: null, error };
       }
+    })();
 
-      const newItem = {
-        ...dataWithoutId,
-        id: docRef.id,
-        created_at: dataToInsert.created_at.toDate().toISOString(),
-        updated_at: dataToInsert.updated_at.toDate().toISOString(),
-      };
-
-      this.lastInsertedItem = newItem;
-      return { data: newItem, error: null };
-    } catch (error: any) {
-      return { data: null, error };
-    }
+    // Retornar un objeto que permita encadenar .select()
+    return {
+      then: (onFulfilled?: (value: any) => any, onRejected?: (reason: any) => any) => {
+        return insertPromise.then(onFulfilled, onRejected);
+      },
+      catch: (onRejected?: (reason: any) => any) => {
+        return insertPromise.catch(onRejected);
+      },
+      select: (columns?: string) => {
+        // Después de insert, select() debería retornar el item insertado
+        return {
+          then: (onFulfilled?: (value: any) => any, onRejected?: (reason: any) => any) => {
+            return insertPromise.then((result) => {
+              if (result.error) {
+                return onRejected ? onRejected(result.error) : Promise.reject(result.error);
+              }
+              return onFulfilled ? onFulfilled({ data: result.data, error: null }) : { data: result.data, error: null };
+            }, onRejected);
+          },
+          catch: (onRejected?: (reason: any) => any) => {
+            return insertPromise.catch(onRejected);
+          },
+          single: async () => {
+            const result = await insertPromise;
+            if (result.error) {
+              return { data: null, error: result.error };
+            }
+            return { data: result.data, error: null };
+          },
+          maybeSingle: async () => {
+            const result = await insertPromise;
+            if (result.error) {
+              return { data: null, error: result.error };
+            }
+            return { data: result.data || null, error: null };
+          },
+        };
+      },
+    } as any;
   }
 
-  async select() {
+  async executeQuery() {
     try {
       // Si hay un item insertado recientemente y no hay filtros, retornar ese item
       if (this.lastInsertedItem && this.filters.length === 0) {
@@ -162,8 +228,12 @@ class FirebaseSupabaseClient {
         constraints.push(where(filter.column, '==', filter.value));
       });
 
-      // Aplicar ordenamiento
-      if (this.orderByClause) {
+      // Si hay filtros Y ordenamiento, Firestore requiere un índice compuesto
+      // Para evitar esto, aplicaremos el ordenamiento en memoria después de obtener los datos
+      const needsInMemorySort = this.filters.length > 0 && this.orderByClause !== undefined;
+
+      // Solo aplicar ordenamiento en Firestore si no hay filtros (o si no necesitamos ordenar en memoria)
+      if (this.orderByClause && !needsInMemorySort) {
         constraints.push(
           orderBy(
             this.orderByClause.column,
@@ -191,6 +261,24 @@ class FirebaseSupabaseClient {
         id: doc.id,
         ...convertTimestamp(doc.data()),
       }));
+
+      // Ordenar en memoria si es necesario (para evitar requerir índice compuesto)
+      if (needsInMemorySort && this.orderByClause) {
+        items.sort((a, b) => {
+          const aValue = a[this.orderByClause!.column];
+          const bValue = b[this.orderByClause!.column];
+          
+          // Manejar valores nulos/undefined
+          if (aValue == null && bValue == null) return 0;
+          if (aValue == null) return 1;
+          if (bValue == null) return -1;
+          
+          // Comparar valores
+          if (aValue < bValue) return this.orderByClause!.ascending ? -1 : 1;
+          if (aValue > bValue) return this.orderByClause!.ascending ? 1 : -1;
+          return 0;
+        });
+      }
 
       // Manejar relaciones (ej: clients (full_name, document_number))
       if (this.selectColumns && this.selectColumns.includes('(')) {
@@ -251,7 +339,7 @@ class FirebaseSupabaseClient {
   }
 
   async single() {
-    const result = await this.select();
+    const result = await this.executeQuery();
     if (result.data && result.data.length > 0) {
       return { data: result.data[0], error: null };
     }
@@ -259,7 +347,7 @@ class FirebaseSupabaseClient {
   }
 
   async maybeSingle() {
-    const result = await this.select();
+    const result = await this.executeQuery();
     return { data: result.data?.[0] || null, error: null };
   }
 }
