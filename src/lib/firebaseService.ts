@@ -179,14 +179,16 @@ class FirebaseSupabaseClient {
         return insertPromise.catch(onRejected);
       },
       select: (columns?: string) => {
-        // Después de insert, select() debería retornar el item insertado
+        // Después de insert, select() debería retornar el item insertado en un array
         return {
           then: (onFulfilled?: (value: any) => any, onRejected?: (reason: any) => any) => {
             return insertPromise.then((result) => {
               if (result.error) {
                 return onRejected ? onRejected(result.error) : Promise.reject(result.error);
               }
-              return onFulfilled ? onFulfilled({ data: result.data, error: null }) : { data: result.data, error: null };
+              // Retornar como array para ser consistente con Supabase
+              const selectResult = { data: result.data ? [result.data] : [], error: null };
+              return onFulfilled ? onFulfilled(selectResult) : selectResult;
             }, onRejected);
           },
           catch: (onRejected?: (reason: any) => any) => {

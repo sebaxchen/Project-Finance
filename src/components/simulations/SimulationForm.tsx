@@ -134,11 +134,16 @@ export function SimulationForm({ onClose, onSuccess }: SimulationFormProps) {
 
       if (scheduleError) throw scheduleError;
 
-      onSuccess(simulationData.id);
+      // Cerrar primero el formulario antes de llamar a onSuccess
+      // para evitar problemas de re-render
+      setLoading(false);
       onClose();
+      // Usar setTimeout para asegurar que el cierre se complete antes de onSuccess
+      setTimeout(() => {
+        onSuccess(simulationData.id);
+      }, 0);
     } catch (err: any) {
       setError(err.message || 'Error al crear simulación');
-    } finally {
       setLoading(false);
     }
   };
