@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Client } from '../../types/database';
-import { User, Mail, Phone, DollarSign } from 'lucide-react';
+import { User, Mail, Phone, DollarSign, Trash2 } from 'lucide-react';
 import { getClientColor } from '../../utils/clientColors';
 import { getDistrictImage } from '../../utils/districtImages';
 
@@ -29,6 +29,27 @@ export function ClientList() {
       console.error('Error loading clients:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteClient = async (clientId: string, clientName: string) => {
+    if (!confirm(`¿Estás seguro de que deseas eliminar al cliente ${clientName}?`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientId);
+
+      if (error) throw error;
+      
+      // Recargar la lista de clientes
+      await loadClients();
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      alert('Error al eliminar el cliente. Por favor, intenta nuevamente.');
     }
   };
 
@@ -65,8 +86,17 @@ export function ClientList() {
       {clients.map((client) => (
         <div
           key={client.id}
-          className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+          className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow relative"
         >
+          {/* Botón de eliminar en la esquina superior derecha */}
+          <button
+            onClick={() => handleDeleteClient(client.id, client.full_name)}
+            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            title="Eliminar cliente"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+
           <div className="flex items-center gap-6">
             {/* Avatar o Imagen del Distrito */}
             <div className="flex-shrink-0">

@@ -213,6 +213,66 @@ class FirebaseSupabaseClient {
     } as any;
   }
 
+  delete(id?: string) {
+    const self = this;
+    
+    // Si se proporciona un ID directamente, ejecutar la eliminación inmediatamente
+    if (id) {
+      const deletePromise = (async () => {
+        try {
+          const docRef = doc(db, this.collectionName, id);
+          await deleteDoc(docRef);
+          return { data: null, error: null };
+        } catch (error: any) {
+          return { data: null, error };
+        }
+      })();
+
+      return {
+        then: (onFulfilled?: (value: any) => any, onRejected?: (reason: any) => any) => {
+          return deletePromise.then(onFulfilled, onRejected);
+        },
+        catch: (onRejected?: (reason: any) => any) => {
+          return deletePromise.catch(onRejected);
+        },
+      } as any;
+    }
+
+    // Si no se proporciona ID, permitir encadenar con .eq()
+    const deleteThenable = {
+      eq: (column: string, value: any) => {
+        self.eq(column, value);
+        const deletePromise = (async () => {
+          try {
+            // Buscar el filtro de ID
+            const idFilter = self.filters.find(f => f.column === 'id');
+            if (!idFilter) {
+              throw new Error('No se proporcionó un ID para eliminar');
+            }
+
+            const docRef = doc(db, self.collectionName, idFilter.value);
+            await deleteDoc(docRef);
+
+            return { data: null, error: null };
+          } catch (error: any) {
+            return { data: null, error };
+          }
+        })();
+
+        return {
+          then: (onFulfilled?: (value: any) => any, onRejected?: (reason: any) => any) => {
+            return deletePromise.then(onFulfilled, onRejected);
+          },
+          catch: (onRejected?: (reason: any) => any) => {
+            return deletePromise.catch(onRejected);
+          },
+        };
+      },
+    };
+
+    return deleteThenable as any;
+  }
+
   async executeQuery() {
     try {
       // Si hay un item insertado recientemente y no hay filtros, retornar ese item
