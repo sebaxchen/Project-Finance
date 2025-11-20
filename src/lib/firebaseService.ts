@@ -100,8 +100,17 @@ class FirebaseSupabaseClient {
         self.order(column, options);
         return thenable;
       },
-      single: () => self.single(),
-      maybeSingle: () => self.maybeSingle(),
+      single: async () => {
+        const result = await self.executeQuery();
+        if (result.data && result.data.length > 0) {
+          return { data: result.data[0], error: null };
+        }
+        return { data: null, error: { message: 'No rows found' } };
+      },
+      maybeSingle: async () => {
+        const result = await self.executeQuery();
+        return { data: result.data?.[0] || null, error: result.error || null };
+      },
       // Hacer el objeto "thenable" para soportar await
       then: (onFulfilled?: (value: any) => any, onRejected?: (reason: any) => any) => {
         return self.executeQuery().then(onFulfilled, onRejected);
@@ -128,7 +137,52 @@ class FirebaseSupabaseClient {
     const self = this;
     const insertPromise = (async () => {
       try {
-        // Convertir fechas a Timestamp si es necesario
+        // Si es un array, insertar múltiples documentos
+        if (Array.isArray(data)) {
+          const insertPromises = data.map(async (item) => {
+            const dataToInsert: any = { ...item };
+            const { id, ...dataWithoutId } = dataToInsert;
+            
+            if (!dataToInsert.created_at) {
+              dataToInsert.created_at = Timestamp.now();
+            }
+            if (!dataToInsert.updated_at) {
+              dataToInsert.updated_at = Timestamp.now();
+            }
+
+            let docRef;
+            if (id) {
+              docRef = doc(db, self.collectionName, id);
+              await setDoc(docRef, {
+                ...dataWithoutId,
+                created_at: dataToInsert.created_at,
+                updated_at: dataToInsert.updated_at,
+              });
+            } else {
+              docRef = await addDoc(collection(db, self.collectionName), {
+                ...dataWithoutId,
+                created_at: dataToInsert.created_at,
+                updated_at: dataToInsert.updated_at,
+              });
+            }
+
+            return {
+              ...dataWithoutId,
+              id: docRef.id,
+              created_at: dataToInsert.created_at.toDate().toISOString(),
+              updated_at: dataToInsert.updated_at.toDate().toISOString(),
+            };
+          });
+
+          const insertedItems = await Promise.all(insertPromises);
+          // Guardar el último item insertado
+          if (insertedItems.length > 0) {
+            self.lastInsertedItem = insertedItems[insertedItems.length - 1];
+          }
+          return { data: insertedItems, error: null };
+        }
+
+        // Si es un objeto único, insertar un solo documento
         const dataToInsert: any = { ...data };
         const { id, ...dataWithoutId } = dataToInsert;
         
@@ -186,8 +240,12 @@ class FirebaseSupabaseClient {
               if (result.error) {
                 return onRejected ? onRejected(result.error) : Promise.reject(result.error);
               }
-              // Retornar como array para ser consistente con Supabase
-              const selectResult = { data: result.data ? [result.data] : [], error: null };
+              // Si result.data ya es un array (inserción múltiple), retornarlo tal cual
+              // Si es un objeto único, convertirlo a array
+              const selectResult = { 
+                data: Array.isArray(result.data) ? result.data : (result.data ? [result.data] : []), 
+                error: null 
+              };
               return onFulfilled ? onFulfilled(selectResult) : selectResult;
             }, onRejected);
           },
@@ -199,14 +257,18 @@ class FirebaseSupabaseClient {
             if (result.error) {
               return { data: null, error: result.error };
             }
-            return { data: result.data, error: null };
+            // Si es un array, retornar el primer elemento; si es un objeto, retornarlo tal cual
+            const data = Array.isArray(result.data) ? (result.data.length > 0 ? result.data[0] : null) : result.data;
+            return { data, error: null };
           },
           maybeSingle: async () => {
             const result = await insertPromise;
             if (result.error) {
               return { data: null, error: result.error };
             }
-            return { data: result.data || null, error: null };
+            // Si es un array, retornar el primer elemento; si es un objeto, retornarlo tal cual
+            const data = Array.isArray(result.data) ? (result.data.length > 0 ? result.data[0] : null) : result.data;
+            return { data: data || null, error: null };
           },
         };
       },
@@ -282,6 +344,126 @@ class FirebaseSupabaseClient {
     return deleteThenable as any;
   }
 
+  update(data: any) {
+    // Retornar un objeto que permita encadenar .eq() y luego .select()/.single()
+    const self = this;
+    const updateThenable = {
+      eq: (column: string, value: any) => {
+        self.eq(column, value);
+        // Crear una promesa que ejecute la actualización
+        const updatePromise = (async () => {
+          try {
+            const dataToUpdate: any = { ...data };
+            // Agregar updated_at automáticamente
+            dataToUpdate.updated_at = Timestamp.now();
+
+            let updatedDocId: string | null = null;
+
+            // Si el filtro es por 'id', actualizar ese documento específico
+            if (column === 'id') {
+              updatedDocId = value;
+              const docRef = doc(db, self.collectionName, value);
+              await updateDoc(docRef, {
+                ...dataToUpdate,
+                updated_at: dataToUpdate.updated_at,
+              });
+            } else {
+              // Si el filtro es por otra columna, buscar documentos y actualizarlos
+              const collectionRef = collection(db, self.collectionName);
+              const q = query(collectionRef, where(column, '==', value));
+              const querySnapshot = await getDocs(q);
+
+              if (!querySnapshot.empty) {
+                // Actualizar todos los documentos encontrados
+                const updatePromises = querySnapshot.docs.map((docSnapshot) =>
+                  updateDoc(doc(db, self.collectionName, docSnapshot.id), {
+                    ...dataToUpdate,
+                    updated_at: dataToUpdate.updated_at,
+                  })
+                );
+
+                await Promise.all(updatePromises);
+                // Si solo hay un documento, guardar su ID
+                if (querySnapshot.docs.length === 1) {
+                  updatedDocId = querySnapshot.docs[0].id;
+                }
+              }
+            }
+
+            // Retornar el documento actualizado si se conoce el ID
+            let updatedData = null;
+            if (updatedDocId) {
+              const docRef = doc(db, self.collectionName, updatedDocId);
+              const docSnapshot = await getDoc(docRef);
+              if (docSnapshot.exists()) {
+                updatedData = {
+                  id: docSnapshot.id,
+                  ...docSnapshot.data(),
+                };
+                // Convertir timestamps
+                updatedData = convertTimestamp(updatedData);
+              }
+            }
+
+            return { data: updatedData, error: null };
+          } catch (error: any) {
+            return { data: null, error };
+          }
+        })();
+
+        // Retornar objeto que permita encadenar .select() y .single()
+        return {
+          then: (onFulfilled?: (value: any) => any, onRejected?: (reason: any) => any) => {
+            return updatePromise.then(onFulfilled, onRejected);
+          },
+          catch: (onRejected?: (reason: any) => any) => {
+            return updatePromise.catch(onRejected);
+          },
+          select: (columns?: string) => {
+            // select() después de update() retorna el documento actualizado
+            return {
+              then: (onFulfilled?: (value: any) => any, onRejected?: (reason: any) => any) => {
+                return updatePromise.then((result) => {
+                  if (result.error) {
+                    return onRejected ? onRejected(result) : Promise.reject(result);
+                  }
+                  // Retornar como array para ser consistente con Supabase
+                  const selectResult = { data: result.data ? [result.data] : [], error: null };
+                  return onFulfilled ? onFulfilled(selectResult) : selectResult;
+                }, onRejected);
+              },
+              catch: (onRejected?: (reason: any) => any) => {
+                return updatePromise.catch(onRejected);
+              },
+              single: async () => {
+                const result = await updatePromise;
+                if (result.error) {
+                  return { data: null, error: result.error };
+                }
+                return { data: result.data, error: null };
+              },
+              maybeSingle: async () => {
+                const result = await updatePromise;
+                if (result.error) {
+                  return { data: null, error: result.error };
+                }
+                return { data: result.data || null, error: null };
+              },
+            };
+          },
+          single: async () => {
+            const result = await updatePromise;
+            if (result.error) {
+              return { data: null, error: result.error };
+            }
+            return { data: result.data, error: null };
+          },
+        };
+      },
+    };
+    return updateThenable as any;
+  }
+
   async executeQuery() {
     try {
       // Si hay un item insertado recientemente y no hay filtros, retornar ese item
@@ -291,12 +473,42 @@ class FirebaseSupabaseClient {
         return { data: [item], error: null };
       }
 
+      // Optimización: Si el filtro es por 'id', usar getDoc() directamente
+      const idFilter = this.filters.find(f => f.column === 'id');
+      if (idFilter && this.filters.length === 1) {
+        try {
+          const docRef = doc(db, this.collectionName, idFilter.value);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists()) {
+            const item = {
+              id: docSnap.id,
+              ...convertTimestamp(docSnap.data()),
+            };
+            
+            // Manejar relaciones si es necesario
+            if (this.selectColumns && this.selectColumns.includes('(')) {
+              const items = await this.loadRelations([item]);
+              return { data: items, error: null };
+            }
+            
+            return { data: [item], error: null };
+          } else {
+            return { data: [], error: null };
+          }
+        } catch (error: any) {
+          return { data: null, error };
+        }
+      }
+
       const collectionRef = collection(db, this.collectionName);
       const constraints: QueryConstraint[] = [];
 
-      // Aplicar filtros
+      // Aplicar filtros (excluyendo el filtro de 'id' si existe, ya que lo manejamos arriba)
       this.filters.forEach((filter) => {
-        constraints.push(where(filter.column, '==', filter.value));
+        if (filter.column !== 'id') {
+          constraints.push(where(filter.column, '==', filter.value));
+        }
       });
 
       // Si hay filtros Y ordenamiento, Firestore requiere un índice compuesto

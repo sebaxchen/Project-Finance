@@ -2,14 +2,17 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Client } from '../../types/database';
-import { User, Mail, Phone, DollarSign, Trash2 } from 'lucide-react';
+import { User, Mail, Phone, DollarSign, Trash2, Edit } from 'lucide-react';
 import { getClientColor } from '../../utils/clientColors';
 import { getDistrictImage } from '../../utils/districtImages';
+import { ClientForm } from './ClientForm';
 
 export function ClientList() {
   const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
 
   useEffect(() => {
     loadClients();
@@ -53,6 +56,22 @@ export function ClientList() {
     }
   };
 
+  const handleEditClient = (client: Client) => {
+    setEditingClient(client);
+    setShowForm(true);
+  };
+
+  const handleFormSuccess = () => {
+    setShowForm(false);
+    setEditingClient(null);
+    loadClients();
+  };
+
+  const handleFormClose = () => {
+    setShowForm(false);
+    setEditingClient(null);
+  };
+
   const getMaritalStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
       single: 'Soltero(a)',
@@ -82,20 +101,30 @@ export function ClientList() {
   }
 
   return (
-    <div className="space-y-4">
-      {clients.map((client) => (
-        <div
-          key={client.id}
-          className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow relative"
-        >
-          {/* Botón de eliminar en la esquina superior derecha */}
-          <button
-            onClick={() => handleDeleteClient(client.id, client.full_name)}
-            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            title="Eliminar cliente"
+    <>
+      <div className="space-y-4">
+        {clients.map((client) => (
+          <div
+            key={client.id}
+            className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow relative"
           >
-            <Trash2 className="w-5 h-5" />
-          </button>
+            {/* Botones de acción en la esquina superior derecha */}
+            <div className="absolute top-4 right-4 flex gap-2">
+              <button
+                onClick={() => handleEditClient(client)}
+                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Editar cliente"
+              >
+                <Edit className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => handleDeleteClient(client.id, client.full_name)}
+                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title="Eliminar cliente"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            </div>
 
           <div className="flex items-center gap-6">
             {/* Avatar o Imagen del Distrito */}
@@ -189,8 +218,17 @@ export function ClientList() {
               </div>
             </div>
           </div>
-        </div>
-      ))}
-    </div>
+          </div>
+        ))}
+      </div>
+
+      {showForm && (
+        <ClientForm
+          onClose={handleFormClose}
+          onSuccess={handleFormSuccess}
+          client={editingClient}
+        />
+      )}
+    </>
   );
 }

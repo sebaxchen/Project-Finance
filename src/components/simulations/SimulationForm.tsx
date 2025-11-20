@@ -1,19 +1,21 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Client, PropertyUnit } from '../../types/database';
+import { Client, PropertyUnit, CreditSimulation } from '../../types/database';
 import { X } from 'lucide-react';
 import { calculateCreditSchedule } from '../../utils/creditCalculations';
 
 interface SimulationFormProps {
   onClose: () => void;
   onSuccess: (simulationId: string) => void;
+  simulation?: CreditSimulation | null; // Simulación a editar (opcional)
 }
 
-export function SimulationForm({ onClose, onSuccess }: SimulationFormProps) {
+export function SimulationForm({ onClose, onSuccess, simulation }: SimulationFormProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const isEditing = !!simulation;
 
   const [clients, setClients] = useState<Client[]>([]);
   const [properties, setProperties] = useState<PropertyUnit[]>([]);
@@ -37,6 +39,25 @@ export function SimulationForm({ onClose, onSuccess }: SimulationFormProps) {
     loadClientsAndProperties();
   }, [user]);
 
+  // Cargar datos de la simulación si se está editando
+  useEffect(() => {
+    if (simulation) {
+      setFormData({
+        client_id: simulation.client_id,
+        property_id: simulation.property_id,
+        initial_payment: simulation.initial_payment,
+        techo_propio_bonus: simulation.techo_propio_bonus,
+        interest_rate_type: simulation.interest_rate_type,
+        annual_interest_rate: simulation.annual_interest_rate,
+        capitalization: simulation.capitalization || 'monthly',
+        loan_term_years: simulation.loan_term_years,
+        grace_period_type: simulation.grace_period_type,
+        grace_period_months: simulation.grace_period_months,
+        insurance_rate: simulation.insurance_rate,
+      });
+    }
+  }, [simulation]);
+
   const loadClientsAndProperties = async () => {
     try {
       const [clientsResult, propertiesResult] = await Promise.all([
@@ -52,7 +73,16 @@ export function SimulationForm({ onClose, onSuccess }: SimulationFormProps) {
       if (propertiesResult.error) throw propertiesResult.error;
 
       setClients(clientsResult.data || []);
-      setProperties(propertiesResult.data || []);
+      const props = propertiesResult.data || [];
+      setProperties(props);
+
+      // Si estamos editando, seleccionar la propiedad de la simulación
+      if (simulation) {
+        const prop = props.find((p) => p.id === simulation.property_id);
+        if (prop) {
+          setSelectedProperty(prop);
+        }
+      }
     } catch (err) {
       console.error('Error loading data:', err);
     }
@@ -94,56 +124,137 @@ export function SimulationForm({ onClose, onSuccess }: SimulationFormProps) {
         insurance_rate: formData.insurance_rate,
       });
 
-      const { data: simulationData, error: simulationError } = await supabase
-        .from('credit_simulations')
-        .insert({
-          user_id: user?.id,
-          client_id: formData.client_id,
-          property_id: formData.property_id,
-          property_price,
-          initial_payment: formData.initial_payment,
-          loan_amount,
-          techo_propio_bonus: formData.techo_propio_bonus,
-          currency: selectedProperty.currency,
-          interest_rate_type: formData.interest_rate_type,
-          annual_interest_rate: formData.annual_interest_rate,
-          capitalization:
-            formData.interest_rate_type === 'nominal' ? formData.capitalization : null,
-          loan_term_years: formData.loan_term_years,
-          grace_period_type: formData.grace_period_type,
-          grace_period_months: formData.grace_period_months,
-          insurance_rate: formData.insurance_rate,
-          van: calculationResult.van,
-          tir: calculationResult.tir,
-          tea: calculationResult.tea,
-          tcea: calculationResult.tcea,
-        })
-        .select()
-        .single();
+      if (isEditing && simulation) {
+        // Actualizar simulación existente
+        const { data: simulationData, error: simulationError } = await supabase
+          .from('credit_simulations')
+          .update({
+            client_id: formData.client_id,
+            property_id: formData.property_id,
+            property_price,
+            initial_payment: formData.initial_payment,
+            loan_amount,
+            techo_propio_bonus: formData.techo_propio_bonus,
+            currency: selectedProperty.currency,
+            interest_rate_type: formData.interest_rate_type,
+            annual_interest_rate: formData.annual_interest_rate,
+            capitalization:
+              formData.interest_rate_type === 'nominal' ? formData.capitalization : null,
+            loan_term_years: formData.loan_term_years,
+            grace_period_type: formData.grace_period_type,
+            grace_period_months: formData.grace_period_months,
+            insurance_rate: formData.insurance_rate,
+            van: calculationResult.van,
+            tir: calculationResult.tir,
+            tea: calculationResult.tea,
+            tcea: calculationResult.tcea,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', simulation.id)
+          .select()
+          .single();
 
-      if (simulationError) throw simulationError;
+        if (simulationError) throw simulationError;
 
-      const scheduleInserts = calculationResult.payment_schedule.map((item) => ({
-        simulation_id: simulationData.id,
-        ...item,
-      }));
+        // Eliminar cronograma anterior
+        await supabase
+          .from('payment_schedules')
+          .delete()
+          .eq('simulation_id', simulation.id);
 
-      const { error: scheduleError } = await supabase
-        .from('payment_schedules')
-        .insert(scheduleInserts);
+        // Insertar nuevo cronograma
+        const scheduleInserts = calculationResult.payment_schedule.map((item) => ({
+          simulation_id: simulation.id,
+          ...item,
+        }));
 
-      if (scheduleError) throw scheduleError;
+        console.log('Inserting updated payment schedule:', {
+          simulationId: simulation.id,
+          scheduleCount: scheduleInserts.length,
+        });
 
-      // Cerrar primero el formulario antes de llamar a onSuccess
-      // para evitar problemas de re-render
-      setLoading(false);
-      onClose();
-      // Usar setTimeout para asegurar que el cierre se complete antes de onSuccess
-      setTimeout(() => {
-        onSuccess(simulationData.id);
-      }, 0);
+        const { error: scheduleError, data: insertedSchedule } = await supabase
+          .from('payment_schedules')
+          .insert(scheduleInserts);
+
+        if (scheduleError) {
+          console.error('Error inserting updated schedule:', scheduleError);
+          throw scheduleError;
+        }
+
+        console.log('Updated payment schedule inserted successfully');
+
+        // Cerrar y notificar éxito
+        setLoading(false);
+        onClose();
+        setTimeout(() => {
+          onSuccess(simulation.id);
+        }, 0);
+      } else {
+        // Crear nueva simulación
+        const { data: simulationData, error: simulationError } = await supabase
+          .from('credit_simulations')
+          .insert({
+            user_id: user?.id,
+            client_id: formData.client_id,
+            property_id: formData.property_id,
+            property_price,
+            initial_payment: formData.initial_payment,
+            loan_amount,
+            techo_propio_bonus: formData.techo_propio_bonus,
+            currency: selectedProperty.currency,
+            interest_rate_type: formData.interest_rate_type,
+            annual_interest_rate: formData.annual_interest_rate,
+            capitalization:
+              formData.interest_rate_type === 'nominal' ? formData.capitalization : null,
+            loan_term_years: formData.loan_term_years,
+            grace_period_type: formData.grace_period_type,
+            grace_period_months: formData.grace_period_months,
+            insurance_rate: formData.insurance_rate,
+            van: calculationResult.van,
+            tir: calculationResult.tir,
+            tea: calculationResult.tea,
+            tcea: calculationResult.tcea,
+          })
+          .select()
+          .single();
+
+        if (simulationError) throw simulationError;
+
+        const scheduleInserts = calculationResult.payment_schedule.map((item) => ({
+          simulation_id: simulationData.id,
+          ...item,
+        }));
+
+        console.log('Inserting payment schedule:', {
+          simulationId: simulationData.id,
+          scheduleCount: scheduleInserts.length,
+          firstPayment: scheduleInserts[0],
+        });
+
+        const { error: scheduleError, data: insertedSchedule } = await supabase
+          .from('payment_schedules')
+          .insert(scheduleInserts);
+
+        if (scheduleError) {
+          console.error('Error inserting schedule:', scheduleError);
+          throw scheduleError;
+        }
+
+        console.log('Payment schedule inserted successfully:', {
+          insertedCount: insertedSchedule?.length || scheduleInserts.length,
+        });
+
+        // Cerrar y notificar éxito
+        setLoading(false);
+        onClose();
+        setTimeout(() => {
+          onSuccess(simulationData.id);
+        }, 0);
+      }
+
     } catch (err: any) {
-      setError(err.message || 'Error al crear simulación');
+      setError(err.message || `Error al ${isEditing ? 'actualizar' : 'crear'} simulación`);
       setLoading(false);
     }
   };
@@ -173,7 +284,9 @@ export function SimulationForm({ onClose, onSuccess }: SimulationFormProps) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full my-8">
         <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-2xl font-bold text-gray-800">Nueva Simulación de Crédito</h2>
+          <h2 className="text-2xl font-bold text-gray-800">
+            {isEditing ? 'Editar Simulación de Crédito' : 'Nueva Simulación de Crédito'}
+          </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X className="w-6 h-6" />
           </button>
@@ -400,7 +513,13 @@ export function SimulationForm({ onClose, onSuccess }: SimulationFormProps) {
               disabled={loading}
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Creando...' : 'Crear Simulación'}
+              {loading
+                ? isEditing
+                  ? 'Actualizando...'
+                  : 'Creando...'
+                : isEditing
+                ? 'Actualizar Simulación'
+                : 'Crear Simulación'}
             </button>
           </div>
         </form>

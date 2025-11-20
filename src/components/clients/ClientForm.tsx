@@ -1,26 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { X } from 'lucide-react';
 import { assignNewClientColor } from '../../utils/clientColors';
+import { Client } from '../../types/database';
 
 interface ClientFormProps {
   onClose: () => void;
   onSuccess: () => void;
+  client?: Client | null; // Cliente a editar (opcional)
 }
 
-export function ClientForm({ onClose, onSuccess }: ClientFormProps) {
+export function ClientForm({ onClose, onSuccess, client }: ClientFormProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const isEditing = !!client;
 
   const [formData, setFormData] = useState({
-    document_type: 'DNI',
+    document_type: 'DNI' as 'DNI' | 'CE' | 'Passport',
     document_number: '',
     full_name: '',
     email: '',
     phone: '',
-    marital_status: 'single',
+    marital_status: 'single' as 'single' | 'married' | 'divorced' | 'widowed',
     dependents: 0,
     monthly_income: 0,
     district: '',
@@ -28,32 +31,65 @@ export function ClientForm({ onClose, onSuccess }: ClientFormProps) {
     department: '',
   });
 
+  // Cargar datos del cliente si se está editando
+  useEffect(() => {
+    if (client) {
+      setFormData({
+        document_type: client.document_type,
+        document_number: client.document_number,
+        full_name: client.full_name,
+        email: client.email,
+        phone: client.phone,
+        marital_status: client.marital_status,
+        dependents: client.dependents,
+        monthly_income: client.monthly_income,
+        district: client.district || '',
+        province: client.province || '',
+        department: client.department || '',
+      });
+    }
+  }, [client]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      // Contar clientes existentes para asignar el siguiente color
-      const { count } = await supabase
-        .from('clients')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user?.id);
+      if (isEditing && client) {
+        // Actualizar cliente existente
+        const { error: updateError } = await supabase
+          .from('clients')
+          .update({
+            ...formData,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', client.id);
 
-      const colorIndex = assignNewClientColor(count || 0);
+        if (updateError) throw updateError;
+      } else {
+        // Crear nuevo cliente
+        // Contar clientes existentes para asignar el siguiente color
+        const { count } = await supabase
+          .from('clients')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user?.id);
 
-      const { error: insertError } = await supabase.from('clients').insert({
-        ...formData,
-        user_id: user?.id,
-        color: colorIndex,
-      });
+        const colorIndex = assignNewClientColor(count || 0);
 
-      if (insertError) throw insertError;
+        const { error: insertError } = await supabase.from('clients').insert({
+          ...formData,
+          user_id: user?.id,
+          color: colorIndex,
+        });
+
+        if (insertError) throw insertError;
+      }
 
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Error al registrar cliente');
+      setError(err.message || `Error al ${isEditing ? 'actualizar' : 'registrar'} cliente`);
     } finally {
       setLoading(false);
     }
@@ -71,7 +107,9 @@ export function ClientForm({ onClose, onSuccess }: ClientFormProps) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-2xl font-bold text-gray-800">Registrar Cliente</h2>
+          <h2 className="text-2xl font-bold text-gray-800">
+            {isEditing ? 'Editar Cliente' : 'Registrar Cliente'}
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -280,7 +318,13 @@ export function ClientForm({ onClose, onSuccess }: ClientFormProps) {
               disabled={loading}
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Registrando...' : 'Registrar Cliente'}
+              {loading
+                ? isEditing
+                  ? 'Actualizando...'
+                  : 'Registrando...'
+                : isEditing
+                ? 'Actualizar Cliente'
+                : 'Registrar Cliente'}
             </button>
           </div>
         </form>

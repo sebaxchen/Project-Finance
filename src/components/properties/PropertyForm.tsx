@@ -1,17 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { X } from 'lucide-react';
+import { PropertyUnit } from '../../types/database';
 
 interface PropertyFormProps {
   onClose: () => void;
   onSuccess: () => void;
+  property?: PropertyUnit | null; // Propiedad a editar (opcional)
 }
 
-export function PropertyForm({ onClose, onSuccess }: PropertyFormProps) {
+export function PropertyForm({ onClose, onSuccess, property }: PropertyFormProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const isEditing = !!property;
 
   const [formData, setFormData] = useState({
     property_name: '',
@@ -20,12 +23,31 @@ export function PropertyForm({ onClose, onSuccess }: PropertyFormProps) {
     district: '',
     province: '',
     department: '',
-    property_type: 'apartment',
+    property_type: 'apartment' as 'apartment' | 'house' | 'duplex',
     total_area: 0,
     price: 0,
-    currency: 'PEN',
-    status: 'available',
+    currency: 'PEN' as 'PEN' | 'USD',
+    status: 'available' as 'available' | 'reserved' | 'sold',
   });
+
+  // Cargar datos de la propiedad si se está editando
+  useEffect(() => {
+    if (property) {
+      setFormData({
+        property_name: property.property_name,
+        unit_number: property.unit_number,
+        address: property.address,
+        district: property.district,
+        province: property.province,
+        department: property.department,
+        property_type: property.property_type,
+        total_area: property.total_area,
+        price: property.price,
+        currency: property.currency,
+        status: property.status,
+      });
+    }
+  }, [property]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,17 +55,31 @@ export function PropertyForm({ onClose, onSuccess }: PropertyFormProps) {
     setLoading(true);
 
     try {
-      const { error: insertError } = await supabase.from('property_units').insert({
-        ...formData,
-        user_id: user?.id,
-      });
+      if (isEditing && property) {
+        // Actualizar propiedad existente
+        const { error: updateError } = await supabase
+          .from('property_units')
+          .update({
+            ...formData,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', property.id);
 
-      if (insertError) throw insertError;
+        if (updateError) throw updateError;
+      } else {
+        // Crear nueva propiedad
+        const { error: insertError } = await supabase.from('property_units').insert({
+          ...formData,
+          user_id: user?.id,
+        });
+
+        if (insertError) throw insertError;
+      }
 
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Error al registrar propiedad');
+      setError(err.message || `Error al ${isEditing ? 'actualizar' : 'registrar'} propiedad`);
     } finally {
       setLoading(false);
     }
@@ -61,7 +97,9 @@ export function PropertyForm({ onClose, onSuccess }: PropertyFormProps) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-2xl font-bold text-gray-800">Registrar Propiedad</h2>
+          <h2 className="text-2xl font-bold text-gray-800">
+            {isEditing ? 'Editar Propiedad' : 'Registrar Propiedad'}
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -272,7 +310,13 @@ export function PropertyForm({ onClose, onSuccess }: PropertyFormProps) {
               disabled={loading}
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Registrando...' : 'Registrar Propiedad'}
+              {loading
+                ? isEditing
+                  ? 'Actualizando...'
+                  : 'Registrando...'
+                : isEditing
+                ? 'Actualizar Propiedad'
+                : 'Registrar Propiedad'}
             </button>
           </div>
         </form>

@@ -2,14 +2,17 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { PropertyUnit } from '../../types/database';
-import { Home, MapPin, Ruler, Trash2 } from 'lucide-react';
+import { Home, MapPin, Ruler, Trash2, Edit } from 'lucide-react';
 import { getDistrictImage } from '../../utils/districtImages';
+import { PropertyForm } from './PropertyForm';
 
 export function PropertyList() {
   const { user } = useAuth();
   const [properties, setProperties] = useState<PropertyUnit[]>([]);
   const [assignedPropertyIds, setAssignedPropertyIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<PropertyUnit | null>(null);
 
   useEffect(() => {
     loadProperties();
@@ -109,6 +112,22 @@ export function PropertyList() {
     }
   };
 
+  const handleEditProperty = (property: PropertyUnit) => {
+    setEditingProperty(property);
+    setShowForm(true);
+  };
+
+  const handleFormSuccess = () => {
+    setShowForm(false);
+    setEditingProperty(null);
+    loadProperties();
+  };
+
+  const handleFormClose = () => {
+    setShowForm(false);
+    setEditingProperty(null);
+  };
+
   const getStatusBadge = (status: string, propertyId: string) => {
     // Si la propiedad está asignada a un cliente (tiene simulación), mostrar "No disponible"
     if (assignedPropertyIds.has(propertyId)) {
@@ -157,20 +176,30 @@ export function PropertyList() {
   }
 
   return (
+    <>
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {properties.map((property) => (
         <div
           key={property.id}
           className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow relative"
         >
-          {/* Botón de eliminar en la esquina superior derecha */}
-          <button
-            onClick={() => handleDeleteProperty(property.id, property.property_name)}
-            className="absolute top-4 right-4 z-10 p-2 text-white hover:text-red-300 hover:bg-red-900/30 rounded-lg transition-colors backdrop-blur-sm"
-            title="Eliminar propiedad"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
+          {/* Botones de acción en la esquina superior derecha */}
+          <div className="absolute top-4 right-4 z-10 flex gap-2">
+            <button
+              onClick={() => handleEditProperty(property)}
+              className="p-2 text-white hover:text-blue-300 hover:bg-blue-900/30 rounded-lg transition-colors backdrop-blur-sm"
+              title="Editar propiedad"
+            >
+              <Edit className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => handleDeleteProperty(property.id, property.property_name)}
+              className="p-2 text-white hover:text-red-300 hover:bg-red-900/30 rounded-lg transition-colors backdrop-blur-sm"
+              title="Eliminar propiedad"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
 
           <div className="bg-blue-600 h-32 flex items-center justify-center relative overflow-hidden">
             {(() => {
@@ -240,5 +269,14 @@ export function PropertyList() {
         </div>
       ))}
     </div>
+
+    {showForm && (
+      <PropertyForm
+        onClose={handleFormClose}
+        onSuccess={handleFormSuccess}
+        property={editingProperty}
+      />
+    )}
+    </>
   );
 }

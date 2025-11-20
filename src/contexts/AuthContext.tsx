@@ -26,28 +26,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
+    let mounted = true;
+    let unsubscribe: (() => void) | null = null;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
+    const initializeAuth = async () => {
+      try {
+        const sessionResult = await supabase.auth.getSession();
+        if (!mounted) return;
+        
+        const session = sessionResult?.data?.session;
         setUser(session?.user ?? null);
         if (session?.user) {
           await loadProfile(session.user.id);
         } else {
-          setProfile(null);
           setLoading(false);
         }
-      })();
-    });
+      } catch (error) {
+        console.error('Error getting session:', error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
 
-    return () => subscription.unsubscribe();
+    initializeAuth();
+
+    try {
+      const authStateResult = supabase.auth.onAuthStateChange((_event, session) => {
+        if (!mounted) return;
+        
+        (async () => {
+          setUser(session?.user ?? null);
+          if (session?.user) {
+            await loadProfile(session.user.id);
+          } else {
+            setProfile(null);
+            setLoading(false);
+          }
+        })();
+      });
+
+      // El servicio de Firebase retorna { data: { subscription: { unsubscribe } } }
+      unsubscribe = authStateResult?.data?.subscription?.unsubscribe || 
+                    authStateResult?.subscription?.unsubscribe || 
+                    null;
+    } catch (error) {
+      console.error('Error setting up auth state change:', error);
+    }
+
+    return () => {
+      mounted = false;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   const loadProfile = async (userId: string) => {

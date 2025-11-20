@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { CreditSimulation } from '../../types/database';
-import { Calculator, Eye, Trash2 } from 'lucide-react';
+import { Calculator, Eye, Trash2, Edit } from 'lucide-react';
 
 interface SimulationListProps {
   onViewDetails: (simulationId: string) => void;
+  onEdit?: (simulationId: string) => void;
 }
 
-export function SimulationList({ onViewDetails }: SimulationListProps) {
+export function SimulationList({ onViewDetails, onEdit }: SimulationListProps) {
   const { user } = useAuth();
   const [simulations, setSimulations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,14 +97,25 @@ export function SimulationList({ onViewDetails }: SimulationListProps) {
             key={sim.id}
             className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow relative"
           >
-            {/* Botón de eliminar en la esquina superior derecha */}
-            <button
-              onClick={() => handleDeleteSimulation(sim.id, sim.clients?.full_name || 'cliente')}
-              className="absolute top-4 right-4 z-10 p-2 text-white hover:text-red-300 hover:bg-red-900/30 rounded-lg transition-colors backdrop-blur-sm"
-              title="Eliminar simulación"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
+            {/* Botones de acción en la esquina superior derecha */}
+            <div className="absolute top-4 right-4 z-10 flex gap-2">
+              {onEdit && (
+                <button
+                  onClick={() => onEdit(sim.id)}
+                  className="p-2 text-white hover:text-blue-300 hover:bg-blue-900/30 rounded-lg transition-colors backdrop-blur-sm"
+                  title="Editar simulación"
+                >
+                  <Edit className="w-5 h-5" />
+                </button>
+              )}
+              <button
+                onClick={() => handleDeleteSimulation(sim.id, sim.clients?.full_name || 'cliente')}
+                className="p-2 text-white hover:text-red-300 hover:bg-red-900/30 rounded-lg transition-colors backdrop-blur-sm"
+                title="Eliminar simulación"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            </div>
 
             {/* Header con icono */}
             <div className="bg-blue-600 h-24 flex items-center justify-center relative">
