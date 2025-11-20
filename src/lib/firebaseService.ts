@@ -244,14 +244,23 @@ class FirebaseSupabaseClient {
         self.eq(column, value);
         const deletePromise = (async () => {
           try {
-            // Buscar el filtro de ID
-            const idFilter = self.filters.find(f => f.column === 'id');
-            if (!idFilter) {
-              throw new Error('No se proporcionó un ID para eliminar');
+            // Si el filtro es por 'id', eliminar un solo documento
+            if (column === 'id') {
+              const docRef = doc(db, self.collectionName, value);
+              await deleteDoc(docRef);
+              return { data: null, error: null };
             }
 
-            const docRef = doc(db, self.collectionName, idFilter.value);
-            await deleteDoc(docRef);
+            // Si el filtro es por otra columna, buscar y eliminar todos los documentos que coincidan
+            const collectionRef = collection(db, self.collectionName);
+            const q = query(collectionRef, where(column, '==', value));
+            const querySnapshot = await getDocs(q);
+
+            // Eliminar todos los documentos encontrados
+            const deletePromises = querySnapshot.docs.map((docSnapshot) =>
+              deleteDoc(doc(db, self.collectionName, docSnapshot.id))
+            );
+            await Promise.all(deletePromises);
 
             return { data: null, error: null };
           } catch (error: any) {

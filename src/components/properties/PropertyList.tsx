@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { PropertyUnit } from '../../types/database';
-import { Home, MapPin, Ruler } from 'lucide-react';
+import { Home, MapPin, Ruler, Trash2 } from 'lucide-react';
 import { getDistrictImage } from '../../utils/districtImages';
 
 export function PropertyList() {
@@ -53,6 +53,60 @@ export function PropertyList() {
       duplex: 'Dúplex',
     };
     return labels[type] || type;
+  };
+
+  const handleDeleteProperty = async (propertyId: string, propertyName: string) => {
+    // Verificar si la propiedad tiene simulaciones asociadas
+    if (assignedPropertyIds.has(propertyId)) {
+      if (!confirm(`La propiedad "${propertyName}" tiene simulaciones asociadas. ¿Estás seguro de que deseas eliminarla? Esto también eliminará las simulaciones relacionadas.`)) {
+        return;
+      }
+    } else {
+      if (!confirm(`¿Estás seguro de que deseas eliminar la propiedad "${propertyName}"?`)) {
+        return;
+      }
+    }
+
+    try {
+      // Si tiene simulaciones, primero eliminar las simulaciones y sus payment_schedules
+      if (assignedPropertyIds.has(propertyId)) {
+        // Obtener todas las simulaciones de esta propiedad
+        const { data: simulations } = await supabase
+          .from('credit_simulations')
+          .select('id')
+          .eq('property_id', propertyId);
+
+        if (simulations && simulations.length > 0) {
+          // Eliminar payment_schedules primero
+          for (const sim of simulations) {
+            await supabase
+              .from('payment_schedules')
+              .delete()
+              .eq('simulation_id', sim.id);
+          }
+
+          // Eliminar las simulaciones
+          await supabase
+            .from('credit_simulations')
+            .delete()
+            .eq('property_id', propertyId);
+        }
+      }
+
+      // Eliminar la propiedad
+      const { error } = await supabase
+        .from('property_units')
+        .delete()
+        .eq('id', propertyId);
+
+      if (error) throw error;
+      
+      // Recargar la lista de propiedades
+      await loadProperties();
+    } catch (error) {
+      console.error('Error deleting property:', error);
+      alert('Error al eliminar la propiedad. Por favor, intenta nuevamente.');
+    }
   };
 
   const getStatusBadge = (status: string, propertyId: string) => {
@@ -107,8 +161,17 @@ export function PropertyList() {
       {properties.map((property) => (
         <div
           key={property.id}
-          className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
+          className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow relative"
         >
+          {/* Botón de eliminar en la esquina superior derecha */}
+          <button
+            onClick={() => handleDeleteProperty(property.id, property.property_name)}
+            className="absolute top-4 right-4 z-10 p-2 text-white hover:text-red-300 hover:bg-red-900/30 rounded-lg transition-colors backdrop-blur-sm"
+            title="Eliminar propiedad"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+
           <div className="bg-blue-600 h-32 flex items-center justify-center relative overflow-hidden">
             {(() => {
               const districtImage = getDistrictImage(
