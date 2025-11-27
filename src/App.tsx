@@ -6,7 +6,9 @@ import { ClientsPage } from './pages/ClientsPage';
 import { PropertiesPage } from './pages/PropertiesPage';
 import { SimulationsPage } from './pages/SimulationsPage';
 import { SupportPage } from './pages/SupportPage';
+import { ReclamacionesPage } from './pages/ReclamacionesPage';
 import { Sidebar } from './components/layout/Sidebar';
+import { Footer } from './components/layout/Footer';
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -36,16 +38,19 @@ function AppContent() {
         return <SimulationsPage />;
       case 'support':
         return <SupportPage />;
+      case 'reclamaciones':
+        return <ReclamacionesPage />;
       default:
         return <DashboardPage />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} />
-      <main className="ml-64 min-h-screen overflow-auto">
-        <div className="max-w-7xl mx-auto p-8">{renderPage()}</div>
+      <main className="ml-64 flex-1 flex flex-col">
+        <div className="flex-1 max-w-7xl mx-auto w-full p-8">{renderPage()}</div>
+        <Footer onNavigate={setCurrentPage} />
       </main>
     </div>
   );
