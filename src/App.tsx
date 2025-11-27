@@ -5,6 +5,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ClientsPage } from './pages/ClientsPage';
 import { PropertiesPage } from './pages/PropertiesPage';
 import { SimulationsPage } from './pages/SimulationsPage';
+import { SupportPage } from './pages/SupportPage';
 import { Sidebar } from './components/layout/Sidebar';
 
 function AppContent() {
@@ -33,6 +34,8 @@ function AppContent() {
         return <PropertiesPage />;
       case 'simulations':
         return <SimulationsPage />;
+      case 'support':
+        return <SupportPage />;
       default:
         return <DashboardPage />;
     }
