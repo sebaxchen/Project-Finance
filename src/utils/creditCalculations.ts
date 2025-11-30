@@ -98,7 +98,9 @@ export function calculateCreditSchedule(params: CreditCalculationParams): Credit
   const monthly_rate = calculateMonthlyRate30Days(tea);
   
   // Paso 3: Calcular seguro mensual (30 días)
-  // El seguro viene como tasa anual, se prorratea a 30 días
+  // El seguro viene como tasa anual, se prorratea proporcionalmente a 30 días
+  // Tasa mensual de seguro = (Tasa anual / 360) * 30
+  // Esto es consistente con el cálculo proporcional usado en el sector financiero peruano
   const monthly_insurance_rate = (insurance_rate / days_per_year) * days_per_month;
   
   const total_periods = loan_term_years * 12;
@@ -143,18 +145,20 @@ export function calculateCreditSchedule(params: CreditCalculationParams): Credit
 
     let principal_payment = 0;
     let total_payment = 0;
+    let ending_balance = current_balance;
 
     if (is_grace_period) {
       if (grace_period_type === 'total') {
-        // Gracia total: solo se paga seguro
-        // El interés ya fue capitalizado al calcular adjusted_balance
+        // Gracia total: solo se paga seguro, el interés ya fue capitalizado
+        // El saldo no cambia durante la gracia total (ya está capitalizado)
         principal_payment = 0;
         total_payment = insurance_payment;
-        // No capitalizar de nuevo, ya está en adjusted_balance
+        ending_balance = current_balance; // El saldo se mantiene igual
       } else if (grace_period_type === 'partial') {
         // Gracia parcial: se paga interés y seguro, no capital
         principal_payment = 0;
         total_payment = interest_payment + insurance_payment;
+        ending_balance = current_balance; // El saldo se mantiene igual (no se paga capital)
       }
     } else {
       // Período normal: método francés
@@ -162,10 +166,18 @@ export function calculateCreditSchedule(params: CreditCalculationParams): Credit
       principal_payment = fixed_payment - interest_payment;
       // Asegurar que el principal no sea negativo
       if (principal_payment < 0) principal_payment = 0;
-      total_payment = fixed_payment + insurance_payment;
+      // En el último período, ajustar para que el saldo final sea exactamente 0
+      // Esto corrige errores de redondeo acumulados
+      if (period === total_periods || current_balance - principal_payment < 0.01) {
+        principal_payment = current_balance;
+        total_payment = principal_payment + interest_payment + insurance_payment;
+        ending_balance = 0;
+      } else {
+        total_payment = fixed_payment + insurance_payment;
+        ending_balance = current_balance - principal_payment;
+      }
     }
 
-    const ending_balance = current_balance - principal_payment;
     // Redondear a 2 decimales para evitar errores de precisión
     const rounded_ending_balance = Math.round(ending_balance * 100) / 100;
 
@@ -211,38 +223,42 @@ export function calculateCreditSchedule(params: CreditCalculationParams): Credit
 
   // VAN (Valor Actual Neto) - usando meses de 30 días (año de 360 días)
   // VAN = -Préstamo + Σ(Pagos / (1 + TEA)^(días/360))
+  // El préstamo se recibe al inicio (día 0), los pagos se realizan al final de cada período
   let van = -loan_amount;
   for (let i = 0; i < schedule.length; i++) {
     // Descontar usando días: (1 + TEA)^(días/360)
+    // El primer pago es al final del primer mes (30 días), el segundo al final del segundo mes (60 días), etc.
     const days_elapsed = (i + 1) * days_per_month;
     const discount_factor = Math.pow(1 + tea, days_elapsed / days_per_year);
-    van += schedule[i].total_payment / discount_factor;
+    if (isFinite(discount_factor) && discount_factor > 0) {
+      van += schedule[i].total_payment / discount_factor;
+    }
   }
   // Redondear VAN
   van = Math.round(van * 100) / 100;
 
   // TCEA (Tasa de Costo Efectiva Anual) - según normas peruanas
   // TCEA incluye todos los costos: intereses, seguros, comisiones
+  // Se calcula usando la TIR de todos los flujos de caja (préstamo recibido y todos los pagos)
   const total_paid = schedule.reduce((sum, s) => sum + s.total_payment, 0);
-  const total_days = total_periods * days_per_month;
   
   // Validar que haya pagos y que el total sea mayor que el préstamo
   let tcea_final = tea; // Por defecto igual a TEA
   
-  if (total_paid > 0 && loan_amount > 0 && total_days > 0) {
-    // TCEA = [(Total Pagado / Monto Prestado)^(360/días totales)] - 1
-    const ratio = total_paid / loan_amount;
+  if (total_paid > loan_amount && loan_amount > 0) {
+    // Calcular TCEA usando TIR de todos los flujos de caja
+    // Flujo de caja: préstamo recibido (positivo) y todos los pagos (negativos)
+    const tcea_cash_flows = [loan_amount, ...schedule.map((s) => -s.total_payment)];
+    const tcea_tir_monthly = calculateIRR(tcea_cash_flows);
     
-    if (ratio > 0 && isFinite(ratio)) {
-      const exponent = days_per_year / total_days;
-      if (isFinite(exponent) && exponent > 0) {
-        const tcea_calc = Math.pow(ratio, exponent) - 1;
-        
-        // Validar que TCEA sea razonable (entre -50% y 1000%)
-        if (isFinite(tcea_calc) && !isNaN(tcea_calc) && tcea_calc > -0.5 && tcea_calc < 10) {
-          // TCEA debe ser >= TEA (incluye costos adicionales)
-          tcea_final = Math.max(tcea_calc, tea);
-        }
+    if (isFinite(tcea_tir_monthly) && !isNaN(tcea_tir_monthly) && tcea_tir_monthly > -1 && tcea_tir_monthly < 10) {
+      // Convertir TIR mensual a anual: TCEA = (1 + TIR_mensual)^(360/30) - 1
+      const tcea_calc = Math.pow(1 + tcea_tir_monthly, days_per_year / days_per_month) - 1;
+      
+      // Validar que TCEA sea razonable (entre -50% y 1000%)
+      if (isFinite(tcea_calc) && !isNaN(tcea_calc) && tcea_calc > -0.5 && tcea_calc < 10) {
+        // TCEA debe ser >= TEA (incluye costos adicionales como seguros)
+        tcea_final = Math.max(tcea_calc, tea);
       }
     }
   }

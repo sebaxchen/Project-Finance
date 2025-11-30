@@ -1,13 +1,26 @@
 import { useState } from 'react';
 import { LoginForm } from '../components/auth/LoginForm';
 import { RegisterForm } from '../components/auth/RegisterForm';
-import { Home } from 'lucide-react';
+import { Home, ArrowLeft } from 'lucide-react';
 
-export function AuthPage() {
+interface AuthPageProps {
+  onBackToLanding?: () => void;
+}
+
+export function AuthPage({ onBackToLanding }: AuthPageProps) {
   const [showLogin, setShowLogin] = useState(true);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center p-4 relative">
+      {onBackToLanding && (
+        <button
+          onClick={onBackToLanding}
+          className="absolute top-4 left-4 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span>Volver</span>
+        </button>
+      )}
       <div className="w-full max-w-6xl grid md:grid-cols-2 gap-8 items-center">
         <div className="hidden md:block">
           <div className="flex items-center gap-3 mb-6">

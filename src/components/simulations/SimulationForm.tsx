@@ -103,11 +103,22 @@ export function SimulationForm({ onClose, onSuccess, simulation }: SimulationFor
       if (!selectedProperty) throw new Error('Selecciona una propiedad');
 
       const property_price = selectedProperty.price;
-      const loan_amount =
-        property_price - formData.initial_payment - formData.techo_propio_bonus;
+      
+      // Validar que el bono de techo propio no sea negativo
+      if (formData.techo_propio_bonus < 0) {
+        throw new Error('El bono de techo propio no puede ser negativo');
+      }
+      
+      // Validar que la suma de cuota inicial y bono no exceda el precio de la propiedad
+      const total_discount = formData.initial_payment + formData.techo_propio_bonus;
+      if (total_discount > property_price) {
+        throw new Error('La suma de la cuota inicial y el bono de techo propio no puede exceder el precio de la propiedad');
+      }
+      
+      const loan_amount = property_price - total_discount;
 
       if (loan_amount <= 0) {
-        throw new Error('El monto del préstamo debe ser mayor a 0');
+        throw new Error('El monto del préstamo debe ser mayor a 0. Ajusta la cuota inicial o el bono de techo propio.');
       }
 
       const calculationResult = calculateCreditSchedule({
@@ -341,18 +352,34 @@ export function SimulationForm({ onClose, onSuccess, simulation }: SimulationFor
 
           {selectedProperty && (
             <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-gray-900 mb-2">Resumen de Financiamiento</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
+              <h3 className="font-semibold text-gray-900 mb-3">Resumen de Financiamiento</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-center">
                   <p className="text-gray-600">Precio de Propiedad</p>
                   <p className="font-semibold">
                     {selectedProperty.currency === 'PEN' ? 'S/' : '$'}{' '}
                     {selectedProperty.price.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
-                <div>
-                  <p className="text-gray-600">Monto del Préstamo</p>
-                  <p className="font-semibold text-blue-600">
+                <div className="flex justify-between items-center">
+                  <p className="text-gray-600">- Cuota Inicial</p>
+                  <p className="font-semibold text-red-600">
+                    - {selectedProperty.currency === 'PEN' ? 'S/' : '$'}{' '}
+                    {formData.initial_payment.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                {formData.techo_propio_bonus > 0 && (
+                  <div className="flex justify-between items-center">
+                    <p className="text-gray-600">- Bono Techo Propio</p>
+                    <p className="font-semibold text-yellow-600">
+                      - {selectedProperty.currency === 'PEN' ? 'S/' : '$'}{' '}
+                      {formData.techo_propio_bonus.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                )}
+                <div className="border-t border-blue-200 pt-2 mt-2 flex justify-between items-center">
+                  <p className="text-gray-700 font-semibold">Monto del Préstamo</p>
+                  <p className="font-bold text-blue-600 text-base">
                     {selectedProperty.currency === 'PEN' ? 'S/' : '$'}{' '}
                     {loanAmount.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
                   </p>

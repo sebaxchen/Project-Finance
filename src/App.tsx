@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LandingPage } from './pages/LandingPage';
 import { AuthPage } from './pages/AuthPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ClientsPage } from './pages/ClientsPage';
@@ -14,7 +15,19 @@ import { Footer } from './components/layout/Footer';
 function AppContent() {
   const { user, loading } = useAuth();
   const [currentPage, setCurrentPage] = useState('dashboard');
+  const [showAuth, setShowAuth] = useState(false);
+  const prevUserRef = useRef<typeof user>(null);
 
+  // Detectar cuando el usuario cierra sesión y resetear showAuth
+  useEffect(() => {
+    // Si el usuario pasó de estar autenticado a no estarlo (cerró sesión)
+    if (prevUserRef.current !== null && !user && !loading) {
+      setShowAuth(false); // Mostrar landing page en lugar de auth page
+    }
+    prevUserRef.current = user;
+  }, [user, loading]);
+
+  // Si está cargando, mostrar spinner
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -23,8 +36,12 @@ function AppContent() {
     );
   }
 
+  // Si no hay usuario, mostrar landing page o auth page según el estado
   if (!user) {
-    return <AuthPage />;
+    if (showAuth) {
+      return <AuthPage onBackToLanding={() => setShowAuth(false)} />;
+    }
+    return <LandingPage onNavigateToAuth={() => setShowAuth(true)} />;
   }
 
   const renderPage = () => {

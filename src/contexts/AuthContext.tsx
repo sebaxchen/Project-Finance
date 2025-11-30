@@ -29,11 +29,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     let unsubscribe: (() => void) | null = null;
 
+    // Timeout de seguridad: si después de 3 segundos no hay respuesta, mostrar la landing page
+    const timeoutId = setTimeout(() => {
+      if (mounted) {
+        console.warn('Auth initialization timeout, showing landing page');
+        setLoading(false);
+      }
+    }, 3000);
+
     const initializeAuth = async () => {
       try {
         const sessionResult = await supabase.auth.getSession();
         if (!mounted) return;
         
+        clearTimeout(timeoutId);
         const session = sessionResult?.data?.session;
         setUser(session?.user ?? null);
         if (session?.user) {
@@ -43,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('Error getting session:', error);
+        clearTimeout(timeoutId);
         if (mounted) {
           setLoading(false);
         }
@@ -76,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
+      clearTimeout(timeoutId);
       if (unsubscribe) {
         unsubscribe();
       }
