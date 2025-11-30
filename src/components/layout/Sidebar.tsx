@@ -56,6 +56,12 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       </nav>
 
       <div className="p-4 border-t border-gray-200">
+        <button
+          onClick={() => onNavigate('premium')}
+          className="w-full mb-3 px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-lg hover:from-green-600 hover:to-green-700 transition-all shadow-md"
+        >
+          Premium
+        </button>
         <div className="mb-3 p-3 bg-gray-50 rounded-lg">
           <p className="text-sm font-medium text-gray-900">{profile?.full_name}</p>
           <p className="text-xs text-gray-500">{profile?.email}</p>

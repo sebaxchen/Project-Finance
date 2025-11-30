@@ -7,6 +7,7 @@ import { PropertiesPage } from './pages/PropertiesPage';
 import { SimulationsPage } from './pages/SimulationsPage';
 import { SupportPage } from './pages/SupportPage';
 import { ReclamacionesPage } from './pages/ReclamacionesPage';
+import { PremiumPage } from './pages/PremiumPage';
 import { Sidebar } from './components/layout/Sidebar';
 import { Footer } from './components/layout/Footer';
 
@@ -40,6 +41,8 @@ function AppContent() {
         return <SupportPage />;
       case 'reclamaciones':
         return <ReclamacionesPage />;
+      case 'premium':
+        return <PremiumPage />;
       default:
         return <DashboardPage />;
     }
