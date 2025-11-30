@@ -3,6 +3,7 @@ import { Check, Crown, Building2, Sparkles, X, CreditCard, Home, CheckCircle2 } 
 
 export function PremiumPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEnterpriseFormOpen, setIsEnterpriseFormOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{ name: string; price: string; color: string } | null>(null);
   const [paymentData, setPaymentData] = useState({
     cardNumber: '',
@@ -11,10 +12,28 @@ export function PremiumPage() {
     cvv: '',
     email: '',
   });
+  const [enterpriseData, setEnterpriseData] = useState({
+    companyName: '',
+    contactEmail: '',
+    companySize: '',
+  });
   const [cardType, setCardType] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [enterpriseSuccess, setEnterpriseSuccess] = useState(false);
 
-  const handlePlanClick = (plan: { name: string; price: string; color: string }) => {
+  const handlePlanClick = (plan: { name: string; price: string; color: string; isEnterprise?: boolean }) => {
+    // No abrir modal para planes Básico y Empresarial
+    if (plan.name === 'Básico') {
+      return; // No hacer nada para el plan básico
+    }
+    
+    if (plan.isEnterprise) {
+      setSelectedPlan(plan);
+      setIsEnterpriseFormOpen(true);
+      return;
+    }
+    
+    // Solo abrir modal de pago para Profesional y Premium
     setSelectedPlan(plan);
     setIsModalOpen(true);
   };
@@ -33,6 +52,17 @@ export function PremiumPage() {
     setPaymentSuccess(false);
   };
 
+  const handleCloseEnterpriseForm = () => {
+    setIsEnterpriseFormOpen(false);
+    setSelectedPlan(null);
+    setEnterpriseData({
+      companyName: '',
+      contactEmail: '',
+      companySize: '',
+    });
+    setEnterpriseSuccess(false);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Activar animación de éxito
@@ -41,6 +71,17 @@ export function PremiumPage() {
     // Cerrar el modal después de 2 segundos
     setTimeout(() => {
       handleCloseModal();
+    }, 2000);
+  };
+
+  const handleEnterpriseSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Activar animación de éxito
+    setEnterpriseSuccess(true);
+    
+    // Cerrar el formulario después de 2 segundos
+    setTimeout(() => {
+      handleCloseEnterpriseForm();
     }, 2000);
   };
 
@@ -271,10 +312,10 @@ export function PremiumPage() {
               </ul>
 
               <button
-                onClick={() => handlePlanClick({ name: plan.name, price: plan.price, color: plan.color })}
+                onClick={() => handlePlanClick({ name: plan.name, price: plan.price, color: plan.color, isEnterprise: plan.isEnterprise })}
                 className={`w-full py-2 px-4 ${colors.button} text-white font-semibold rounded-lg transition-colors text-sm`}
               >
-                {plan.isEnterprise ? 'Contactar Ventas' : 'Seleccionar Plan'}
+                {plan.isEnterprise ? 'Contactar Ventas' : plan.name === 'Básico' ? 'Plan Actual' : 'Seleccionar Plan'}
               </button>
             </div>
           );
@@ -452,6 +493,118 @@ export function PremiumPage() {
                     </div>
                   </form>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Formulario Empresarial */}
+      {isEnterpriseFormOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className={`rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col relative transition-all duration-500 ${
+            enterpriseSuccess ? 'bg-green-500' : 'bg-white'
+          }`}>
+            {/* Botón de cerrar */}
+            {!enterpriseSuccess && (
+              <button
+                onClick={handleCloseEnterpriseForm}
+                className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 transition-colors bg-white rounded-full p-2 shadow-md"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+
+            {/* Animación de éxito */}
+            {enterpriseSuccess && (
+              <div className="absolute inset-0 bg-green-500 flex items-center justify-center z-20 animate-fadeIn">
+                <div className="text-center">
+                  <div className="mb-6 animate-scaleIn">
+                    <CheckCircle2 className="w-24 h-24 text-white mx-auto animate-bounce" strokeWidth={2.5} />
+                  </div>
+                  <h2 className="text-4xl font-bold text-white mb-2 animate-slideUp">¡Datos Enviados!</h2>
+                  <p className="text-xl text-white/90 animate-slideUp delay-100">Tus datos se enviaron exitosamente. Sales se contactará contigo</p>
+                </div>
+              </div>
+            )}
+
+            {/* Contenido del formulario */}
+            <div className={`flex-1 overflow-y-auto transition-opacity duration-500 ${
+              enterpriseSuccess ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            }`}>
+              <div className="p-8">
+                <div className="text-center mb-6">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-100 rounded-full mb-4">
+                    <Building2 className="w-8 h-8 text-orange-600" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-gray-900 mb-2">Plan Empresarial</h2>
+                  <p className="text-gray-600">Completa el formulario y nuestro equipo de ventas se pondrá en contacto contigo</p>
+                </div>
+
+                <form onSubmit={handleEnterpriseSubmit} className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Nombre de tu empresa
+                    </label>
+                    <input
+                      type="text"
+                      value={enterpriseData.companyName}
+                      onChange={(e) => setEnterpriseData({ ...enterpriseData, companyName: e.target.value })}
+                      placeholder="Ej: Mi Empresa S.A.C."
+                      className="w-full px-4 py-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm hover:shadow-md"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Correo de contacto
+                    </label>
+                    <input
+                      type="email"
+                      value={enterpriseData.contactEmail}
+                      onChange={(e) => setEnterpriseData({ ...enterpriseData, contactEmail: e.target.value })}
+                      placeholder="contacto@empresa.com"
+                      className="w-full px-4 py-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm hover:shadow-md"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Tamaño de tu empresa
+                    </label>
+                    <select
+                      value={enterpriseData.companySize}
+                      onChange={(e) => setEnterpriseData({ ...enterpriseData, companySize: e.target.value })}
+                      className="w-full px-4 py-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all shadow-sm hover:shadow-md"
+                      required
+                    >
+                      <option value="">Selecciona el tamaño</option>
+                      <option value="1-10">1-10 empleados</option>
+                      <option value="11-50">11-50 empleados</option>
+                      <option value="51-200">51-200 empleados</option>
+                      <option value="201-500">201-500 empleados</option>
+                      <option value="500+">Más de 500 empleados</option>
+                    </select>
+                  </div>
+
+                  <div className="pt-4 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCloseEnterpriseForm}
+                      className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors"
+                    >
+                      Enviar Solicitud
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>
