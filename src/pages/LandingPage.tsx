@@ -1,5 +1,9 @@
 import { Home, ArrowRight, Users, Calculator, CheckCircle2, Crown, Building2, Sparkles, Check, FileText, BarChart3, Zap } from 'lucide-react';
 import libroImage from '../assets/libro.jpeg';
+import sebastianImage from '../assets/team/Sebastian.jpeg';
+import luisImage from '../assets/team/luis.jpeg';
+import christianImage from '../assets/team/christian.jpeg';
+import henryImage from '../assets/team/henry.jpeg';
 
 interface LandingPageProps {
   onNavigateToAuth: () => void;
@@ -12,37 +16,37 @@ export function LandingPage({ onNavigateToAuth }: LandingPageProps) {
       name: 'Beingolea Montalvo Sebastián',
       role: 'Software',
       description: 'U202217853',
-      image: '👨‍💻',
+      image: sebastianImage,
     },
     {
       name: 'Benites Sandoval Luis Derek',
       role: 'Sistemas',
       description: 'U201812390',
-      image: '👨‍💻',
+      image: luisImage,
     },
     {
       name: 'Bonifacio Espiritu Andrés',
       role: 'Sistemas',
       description: 'U202120718',
-      image: '👨‍💻',
+      image: null,
     },
     {
       name: 'Christian Quispe Rea',
       role: 'Sistemas',
       description: 'U202218523',
-      image: '👨‍💻',
+      image: christianImage,
     },
     {
       name: 'Diaz Gutierrez Henry Kevin',
       role: 'Software',
       description: 'U201819674',
-      image: '👨‍💻',
+      image: henryImage,
     },
     {
       name: 'Huamaní Gálvez Carlos',
       role: 'Sistemas',
       description: 'U202217217',
-      image: '👨‍💻',
+      image: null,
     },
   ];
 
@@ -167,9 +171,19 @@ export function LandingPage({ onNavigateToAuth }: LandingPageProps) {
                 className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100"
               >
                 <div className="text-center mb-4">
-                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-green-500 rounded-full text-4xl mb-4">
-                    {member.image}
-                  </div>
+                  {member.image ? (
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full mb-4 overflow-hidden border-2 border-blue-500 shadow-lg">
+                      <img 
+                        src={member.image} 
+                        alt={member.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-green-500 rounded-full text-4xl mb-4">
+                      👨‍💻
+                    </div>
+                  )}
                   <h3 className="text-xl font-bold text-gray-900 mb-1">{member.name}</h3>
                   <p className="text-blue-600 font-semibold mb-2">{member.role}</p>
                   <p className="text-gray-600 text-sm">{member.description}</p>
