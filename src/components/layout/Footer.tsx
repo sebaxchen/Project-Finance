@@ -1,4 +1,5 @@
 import libroImage from '../../assets/libro.jpeg';
+import { HelpCircle } from 'lucide-react';
 
 interface FooterProps {
   onNavigate: (page: string) => void;
@@ -48,6 +49,14 @@ export function Footer({ onNavigate }: FooterProps) {
                 alt="Libro de Reclamaciones"
                 className="h-12 w-auto object-contain"
               />
+            </button>
+            <button
+              onClick={() => onNavigate('support')}
+              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Soporte Técnico"
+            >
+              <HelpCircle className="w-5 h-5" />
+              <span className="font-medium">Soporte</span>
             </button>
 
             <div className="text-center md:text-right">

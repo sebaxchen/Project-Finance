@@ -1,4 +1,4 @@
-import { Home, Users, Building2, Calculator, LogOut, HelpCircle } from 'lucide-react';
+import { Home, Users, Building2, Calculator, LogOut, BookOpen, GraduationCap } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface SidebarProps {
@@ -67,11 +67,18 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
           <p className="text-xs text-gray-500">{profile?.email}</p>
         </div>
         <button
-          onClick={() => onNavigate('support')}
+          onClick={() => onNavigate('documentacion')}
           className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors mb-2"
         >
-          <HelpCircle className="w-5 h-5" />
-          <span className="font-medium">Soporte Técnico</span>
+          <BookOpen className="w-5 h-5" />
+          <span className="font-medium">Documentación</span>
+        </button>
+        <button
+          onClick={() => onNavigate('capacitacion')}
+          className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors mb-2"
+        >
+          <GraduationCap className="w-5 h-5" />
+          <span className="font-medium">Capacitación</span>
         </button>
         <button
           onClick={signOut}

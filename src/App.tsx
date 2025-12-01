@@ -9,6 +9,8 @@ import { SimulationsPage } from './pages/SimulationsPage';
 import { SupportPage } from './pages/SupportPage';
 import { ReclamacionesPage } from './pages/ReclamacionesPage';
 import { PremiumPage } from './pages/PremiumPage';
+import { DocumentacionPage } from './pages/DocumentacionPage';
+import { CapacitacionPage } from './pages/CapacitacionPage';
 import { Sidebar } from './components/layout/Sidebar';
 import { Footer } from './components/layout/Footer';
 
@@ -60,6 +62,10 @@ function AppContent() {
         return <ReclamacionesPage />;
       case 'premium':
         return <PremiumPage />;
+      case 'documentacion':
+        return <DocumentacionPage />;
+      case 'capacitacion':
+        return <CapacitacionPage onNavigate={setCurrentPage} />;
       default:
         return <DashboardPage />;
     }
