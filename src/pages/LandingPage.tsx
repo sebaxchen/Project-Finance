@@ -4,6 +4,7 @@ import sebastianImage from '../assets/team/Sebastian.jpeg';
 import luisImage from '../assets/team/luis.jpeg';
 import christianImage from '../assets/team/christian.jpeg';
 import henryImage from '../assets/team/henry.jpeg';
+import carlosImage from '../assets/team/carlos .jpeg';
 
 interface LandingPageProps {
   onNavigateToAuth: () => void;
@@ -46,7 +47,7 @@ export function LandingPage({ onNavigateToAuth }: LandingPageProps) {
       name: 'Huamaní Gálvez Carlos',
       role: 'Sistemas',
       description: 'U202217217',
-      image: null,
+      image: carlosImage,
     },
   ];
 
