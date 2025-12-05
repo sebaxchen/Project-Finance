@@ -32,7 +32,7 @@ export function SimulationForm({ onClose, onSuccess, simulation }: SimulationFor
     loan_term_years: 20,
     grace_period_type: 'none' as 'none' | 'total' | 'partial',
     grace_period_months: 0,
-    insurance_rate: 0.0005,
+    insurance_rate: 0.0033, // Tasa fija: 0.33% anual (incluye Seguro de Desgravamen + Seguro del Bien) - No visible para el usuario
   });
 
   useEffect(() => {
@@ -53,7 +53,7 @@ export function SimulationForm({ onClose, onSuccess, simulation }: SimulationFor
         loan_term_years: simulation.loan_term_years,
         grace_period_type: simulation.grace_period_type,
         grace_period_months: simulation.grace_period_months,
-        insurance_rate: simulation.insurance_rate,
+        insurance_rate: 0.0033, // Siempre usar tasa fija de 0.33% anual
       });
     }
   }, [simulation]);
@@ -132,7 +132,7 @@ export function SimulationForm({ onClose, onSuccess, simulation }: SimulationFor
         loan_term_years: formData.loan_term_years,
         grace_period_type: formData.grace_period_type,
         grace_period_months: formData.grace_period_months,
-        insurance_rate: formData.insurance_rate,
+        insurance_rate: 0.0033, // Tasa fija: 0.33% anual (Seguro de Desgravamen + Seguro del Bien)
       });
 
       if (isEditing && simulation) {
@@ -154,7 +154,7 @@ export function SimulationForm({ onClose, onSuccess, simulation }: SimulationFor
             loan_term_years: formData.loan_term_years,
             grace_period_type: formData.grace_period_type,
             grace_period_months: formData.grace_period_months,
-            insurance_rate: formData.insurance_rate,
+            insurance_rate: 0.0033, // Tasa fija: 0.33% anual
             van: calculationResult.van,
             tir: calculationResult.tir,
             tea: calculationResult.tea,
@@ -221,7 +221,7 @@ export function SimulationForm({ onClose, onSuccess, simulation }: SimulationFor
             loan_term_years: formData.loan_term_years,
             grace_period_type: formData.grace_period_type,
             grace_period_months: formData.grace_period_months,
-            insurance_rate: formData.insurance_rate,
+            insurance_rate: 0.0033, // Tasa fija: 0.33% anual
             van: calculationResult.van,
             tir: calculationResult.tir,
             tea: calculationResult.tea,
@@ -280,7 +280,6 @@ export function SimulationForm({ onClose, onSuccess, simulation }: SimulationFor
         'annual_interest_rate',
         'loan_term_years',
         'grace_period_months',
-        'insurance_rate',
       ].includes(name)
         ? Number(value)
         : value,

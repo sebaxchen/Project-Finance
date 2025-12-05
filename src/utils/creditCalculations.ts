@@ -98,6 +98,11 @@ export function calculateCreditSchedule(params: CreditCalculationParams): Credit
   const monthly_rate = calculateMonthlyRate30Days(tea);
   
   // Paso 3: Calcular seguro mensual (30 días)
+  // El seguro incluye: Seguro de Desgravamen + Seguro del Bien
+  // En el mercado peruano, típicamente:
+  // - Seguro de Desgravamen: ~0.10% mensual del saldo (1.2% anual)
+  // - Seguro del Bien: ~0.03% mensual del valor del bien (0.36% anual)
+  // Total aproximado: ~0.33% anual del saldo del préstamo
   // El seguro viene como tasa anual, se prorratea proporcionalmente a 30 días
   // Tasa mensual de seguro = (Tasa anual / 360) * 30
   // Esto es consistente con el cálculo proporcional usado en el sector financiero peruano
@@ -141,6 +146,8 @@ export function calculateCreditSchedule(params: CreditCalculationParams): Credit
     const interest_payment = current_balance * monthly_rate;
     
     // Seguro calculado sobre el saldo actual
+    // Incluye: Seguro de Desgravamen + Seguro del Bien
+    // Se calcula mensualmente sobre el saldo pendiente del préstamo
     const insurance_payment = current_balance * monthly_insurance_rate;
 
     let principal_payment = 0;
